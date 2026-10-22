@@ -22,16 +22,6 @@ Use **Save project** to download an editable JSON backup including screenshots. 
 
 Browser storage belongs to a browser profile and origin. Work in the local HTML file or another website will not automatically appear here. To move it, save a JSON backup in the old app, then open that backup here. Keep backups before clearing browser storage or changing browsers.
 
-## Publish your new repository
-
-1. Create your new GitHub repository, for example `dcaa-studio`.
-2. Extract the outer repository ZIP and upload its five files into the repository root. Keep `index.html` at the root; do not upload only the outer ZIP. The editable-source ZIP can stay zipped.
-3. In **Settings → Pages**, select **Deploy from a branch**, choose the branch containing these files (usually `main`), and choose **/(root)**. Save.
-4. Wait for the Pages deployment to finish, then open the website link shown in Pages settings.
-5. To move existing work from the local HTML app, download its project JSON backup and open that backup in the published app.
-
-See [GitHub's publishing instructions](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site). This package has not been published automatically.
-
 ## Editable source
 
 Extract `DCAA-Image-Annotator-source.zip`, then run:

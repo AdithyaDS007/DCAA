@@ -1,0 +1,2644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>DCAA</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5b6475;
+    --border: #d9dde5; --accent: #2557d6; --accent-text: #ffffff; --danger: #c62828;
+    --canvas-bg: #e9ecf1; --comp: #7b3fe4;
+    /* type: 16px base, 14px is the smallest size used anywhere */
+    --fs-base: 16px; --fs-sm: 14px; --fs-lg: 18px; --lh: 1.5;
+    /* spacing scale (4px steps) */
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px;
+    --radius: 8px; --control-h: 40px;
+    --tabbar-h: 57px; /* left Screens/Components tabs and the open-tabs bar share this height */
+    color-scheme: light; /* always light, whatever the OS appearance; also keeps native controls light */
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; font: var(--fs-base)/var(--lh) system-ui, -apple-system, Segoe UI, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+  p { margin: 0; }
+
+  /* header */
+  header { display: flex; gap: var(--s2); align-items: center; padding: var(--s3) var(--s4); background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  header h1 { font-size: var(--fs-lg); margin: 0 auto 0 0; }
+
+  /* buttons and form controls */
+  button, .btn { font: inherit; font-size: var(--fs-sm); min-height: 36px; padding: var(--s2) var(--s3); border-radius: var(--radius); border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); }
+  button:hover, .btn:hover { border-color: var(--accent); }
+  button.primary, .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.small, .btn.small { min-height: 32px; padding: var(--s1) var(--s3); }
+  button.icon { min-height: 32px; min-width: 32px; padding: var(--s1); border-color: transparent; background: transparent; color: var(--muted); }
+  button.icon:hover { color: var(--text); border-color: var(--border); }
+  button:focus-visible, .btn:focus-within, select:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  input[type=text], input:not([type]), select, textarea { font: inherit; font-size: var(--fs-base); color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+  input[type=text], input:not([type]), select { min-height: var(--control-h); padding: var(--s2) var(--s3); width: 100%; }
+  textarea { width: 100%; padding: var(--s2) var(--s3); resize: vertical; min-height: 72px; display: block; }
+  .del { color: var(--danger); }
+  .hint, .empty { color: var(--muted); font-size: var(--fs-sm); }
+
+  /* layout */
+  main { flex: 1; display: flex; min-height: 0; }
+  nav, aside { background: var(--panel); display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+  nav { width: 300px; border-right: 1px solid var(--border); }
+  aside { width: 300px; border-left: 1px solid var(--border); }
+  nav section, aside section { padding: var(--s4); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--s3); }
+  h2 { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--s2); min-height: 32px; }
+
+  /* pages / components tree */
+  .tree { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+  .tree li { border-radius: var(--radius); }
+  .tree .line { display: flex; align-items: center; gap: var(--s1); padding-right: var(--s1); }
+  .tree .open { flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; text-align: left; border: 0; background: transparent; font-size: var(--fs-base); padding: var(--s2) var(--s3); }
+  .tree .open .hint { margin-left: var(--s1); }
+  .tree li.current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .tree li.current .open { font-weight: 600; }
+  .tree .meta { font-size: var(--fs-sm); color: var(--muted); padding: 0 var(--s3) var(--s3); display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+  .diamond { color: var(--comp); }
+  .plus { width: 32px; height: 32px; min-height: 32px; padding: 0; font-size: 20px; line-height: 1; flex: none; }
+  .plus[aria-pressed="true"] { background: var(--comp); border-color: var(--comp); color: #fff; }
+
+  /* tabs + canvas */
+  #center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #tabs { box-sizing: border-box; display: flex; align-items: flex-end; gap: var(--s1); padding: 0 var(--s3); height: var(--tabbar-h); flex: none; background: var(--panel); border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; }
+  .tab { display: flex; align-items: center; height: 44px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--bg); max-width: 240px; flex: none; }
+  .tab[aria-selected="true"] { background: var(--canvas-bg); border-color: var(--accent); box-shadow: inset 0 2px 0 var(--accent); }
+  .tab .go { border: 0; background: transparent; padding: var(--s2) var(--s1) var(--s2) var(--s3); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab .x { border: 0; background: transparent; min-width: 32px; padding: var(--s1); color: var(--muted); }
+  #stageBox { flex: 1; position: relative; display: flex; min-height: 0; }
+  /* margin:auto (not justify-content) keeps a zoomed-in canvas scrollable to its left/top edge */
+  #stage { flex: 1; overflow: auto; background: var(--canvas-bg); display: flex; align-items: flex-start; padding: var(--s5) var(--s5) 72px; min-height: 0; min-width: 0; position: relative; }
+  #wrap { position: relative; display: none; margin: 0 auto; flex: none; box-shadow: 0 2px 12px rgba(0,0,0,.2); }
+  #canvas { display: block; cursor: crosshair; background: #fff; touch-action: none; }
+  /* floating action toolbar: bottom-left of the canvas area, opposite the zoom bar */
+  #fab { position: absolute; left: var(--s4); bottom: var(--s4); z-index: 4; display: flex; align-items: center; gap: 2px; padding: var(--s1); background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+  .ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .tb { min-width: 40px; min-height: 40px; padding: var(--s2); border-color: transparent; background: transparent; color: var(--text); gap: 2px; }
+  .tb:hover:not(:disabled) { background: var(--bg); border-color: var(--border); }
+  .tb[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: var(--accent); }
+  .tb .chev { width: 14px; height: 14px; }
+  .tbsep { width: 1px; height: 24px; background: var(--border); margin: 0 var(--s1); }
+  .tbwrap { position: relative; display: flex; }
+  /* tooltip for icon-only buttons (the accessible name comes from aria-label) */
+  [data-tip]::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%); background: var(--text); color: var(--panel); font-size: var(--fs-sm); padding: var(--s1) var(--s2); border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+  [aria-expanded="true"][data-tip]::after { opacity: 0; }
+  #exportMenu { position: absolute; left: 0; bottom: calc(100% + 12px); width: 290px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.25); padding: var(--s2); display: flex; flex-direction: column; gap: 2px; }
+  #exportMenu button { justify-content: flex-start; align-items: flex-start; gap: var(--s3); width: 100%; border: 0; background: transparent; font-size: var(--fs-base); text-align: left; padding: var(--s2) var(--s3); }
+  #exportMenu button .ico { margin-top: 2px; color: var(--muted); }
+  #exportMenu small { display: block; font-size: var(--fs-sm); color: var(--muted); }
+  #exportMenu button:hover:not(:disabled), #exportMenu button:focus-visible { background: var(--bg); outline-offset: -2px; }
+  /* collapsible left sidebar */
+  header .tbtn { color: var(--text); min-width: 36px; min-height: 36px; }
+  body.nav-collapsed #sidenav { display: none; }
+  /* left: Pages / Components tabs */
+  .navTabs { display: flex; align-items: flex-end; gap: var(--s1); padding: 0 var(--s2); height: var(--tabbar-h); flex: none; box-sizing: border-box; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+  .navTabs button { flex: 1 1 auto; min-width: 0; gap: 6px; padding: var(--s2); white-space: nowrap; border: 0; border-radius: var(--radius) var(--radius) 0 0; background: transparent; font-size: var(--fs-base); color: var(--muted); min-height: 44px; }
+  .navTabs button[aria-selected="true"] { color: var(--text); font-weight: 600; box-shadow: inset 0 -3px 0 var(--accent); }
+  .navTabs .count, #onPage .count { font-size: var(--fs-sm); font-weight: 400; color: var(--muted); background: var(--bg); border-radius: 999px; padding: 0 6px; min-width: 24px; text-align: center; line-height: 20px; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+  #onPage .opItem { display: flex; align-items: center; gap: var(--s1); border-radius: var(--radius); }
+  #onPage .opItem[aria-current="true"] { background: color-mix(in srgb, var(--comp) 12%, transparent); }
+  #onPage .opItem .open { flex: 1; min-width: 0; flex-direction: column; align-items: flex-start; gap: 2px; border: 0; background: transparent; font-size: var(--fs-base); padding: var(--s2) var(--s3); text-align: left; }
+  #onPage .opItem .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #onPage ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s1); }
+  /* count line under a page / component name: icon + "2 annotations", icon + "1 component" */
+  .tree .open .nm { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .counts { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); font-size: var(--fs-sm); font-weight: 400; color: var(--muted); }
+  .counts > span { display: inline-flex; align-items: center; gap: var(--s1); }
+  .ico.sm { width: 14px; height: 14px; }
+  /* right: details of the selected annotation or component */
+  #details { width: 340px; flex: none; background: var(--panel); border-left: 1px solid var(--border); overflow: auto; padding: var(--s4); display: flex; flex-direction: column; gap: var(--s4); }
+  #details.slide { animation: dpIn .18s ease-out; }
+  @keyframes dpIn { from { transform: translateX(16px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #details.slide { animation: none; } }
+  .dpHead { display: flex; align-items: flex-start; gap: var(--s3); }
+  .dpHead .close { margin-left: auto; }
+  .dpHead .num, .dpList .num { width: 28px; height: 28px; border-radius: 50%; color: #fff; font-weight: 700; font-size: var(--fs-sm); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .dpHead .num.comp { background: var(--comp); }
+  .dpTitle { flex: 1; min-width: 0; }
+  .dpTitle h2 { font-size: var(--fs-lg); text-transform: none; letter-spacing: 0; color: var(--text); min-height: 0; margin: 0; }
+  .dpActions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+  .dpBody { display: block; }
+  .dpInfo { display: flex; flex-direction: column; gap: var(--s3); max-width: 75ch; }
+  .dpInfo .chips { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
+  .dpInfo .sc { border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 var(--s2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  .dpTitle h2 { justify-content: flex-start; gap: var(--s2); }
+  .dpList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+  .dpList li { display: flex; gap: var(--s2); align-items: center; }
+  @media (max-width: 900px) { #details { width: 100%; border-left: 0; border-top: 1px solid var(--border); } }
+  /* Annotations | Reading order | Focus order */
+  /* full-width bar above the canvas: view switch on the left, counts on the right (the canvas never goes under it) */
+  #viewBar { flex: none; display: flex; align-items: stretch; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; padding: 0 var(--s4) 0 var(--s3); background: var(--panel); border-bottom: 1px solid var(--border); }
+  /* same tab pattern as Screens / Components: text tabs with an underline on the selected one */
+  #modeBar { display: flex; align-items: flex-end; gap: var(--s1); white-space: nowrap; }
+  #viewStats { display: flex; align-items: center; padding: var(--s2) 0; gap: var(--s4); font-size: var(--fs-sm); color: var(--muted); }
+  #viewStats > span { display: inline-flex; align-items: center; gap: var(--s1); }
+  #viewStats strong { color: var(--text); font-weight: 600; }
+  #placeDlg { width: min(520px, calc(100vw - 32px)); }
+  .placeHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding-bottom: var(--s2); border-bottom: 1px solid var(--border); }
+  .selAll { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 600; }
+  .placeList { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+  .placeList label { display: flex; align-items: center; gap: var(--s3); padding: var(--s2); border-radius: var(--radius); cursor: pointer; }
+  .placeList label:hover { background: var(--bg); }
+  .placeList .hint { margin-left: auto; }
+  #placeDlg input[type=checkbox] { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+  #viewStats .shape { width: 12px; height: 12px; border: 2px solid currentColor; }
+  #modeBar button { border: 0; border-radius: var(--radius) var(--radius) 0 0; background: transparent; font-size: var(--fs-base); color: var(--muted); min-height: 44px; padding: var(--s2) var(--s3); }
+  #modeBar button:hover, .navTabs button:hover { color: var(--text); }
+  #modeBar button[aria-pressed="true"] { color: var(--text); font-weight: 600; box-shadow: inset 0 -3px 0 var(--accent); }
+  #modeBar .mb { width: 12px; height: 12px; border: 2px solid currentColor; }
+  #modeBar .mb.circle { border-radius: 50%; color: #1d4ed8; } #modeBar .mb.square { border-radius: 2px; color: #b42318; }
+  .num.ord.circle { border-radius: 50%; } .num.ord.square { border-radius: 4px; }
+  .num.ord { min-width: 28px; width: auto; padding: 0 var(--s1); }
+  .ordList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .ordList li { display: flex; align-items: center; gap: 2px; border-radius: var(--radius); }
+  .ordList li.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .ordList .ordSel { flex: 1; min-width: 0; justify-content: flex-start; gap: var(--s2); border: 0; background: transparent; text-align: left; font-size: var(--fs-base); padding: var(--s1) var(--s2); }
+  .ordList .num { width: auto; min-width: 28px; height: 28px; color: #fff; font-weight: 700; font-size: var(--fs-sm); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  #zoomBar { position: absolute; right: var(--s4); bottom: var(--s4); z-index: 3; display: flex; align-items: center; gap: 2px; padding: var(--s1); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+  #zoomBar .icon { font-size: 20px; color: var(--text); }
+  #zoomBar .pct { min-width: 64px; min-height: 32px; border-color: transparent; background: transparent; font-variant-numeric: tabular-nums; }
+  #zoomBar .pct:hover, #zoomBar .icon:hover { border-color: var(--border); }
+  #zoomBar .small { margin-left: var(--s1); }
+  #overlay { position: absolute; inset: 0; pointer-events: none; }
+  /* clickable area over a component's name label; the canvas draws the visible label */
+  .openLink { position: absolute; pointer-events: auto; min-height: 0; padding: 0; border: 0; border-radius: 2px; background: transparent; cursor: pointer; }
+  .openLink[aria-expanded="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--accent); }
+  .openLink:hover { background: rgba(255,255,255,.18); box-shadow: 0 0 0 2px #fff; }
+  /* capture hint: a footer bar under the canvas, so it never narrows the image */
+  #banner { display: none; flex: none; }
+  #banner div { background: var(--comp); color: #fff; padding: var(--s3) var(--s4); display: flex; gap: var(--s4); align-items: center; justify-content: center; flex-wrap: wrap; }
+  #banner button { min-height: 32px; border-color: #fff; }
+  #drop { margin: auto; text-align: center; color: var(--muted); border: 2px dashed var(--border); border-radius: 12px; padding: 48px 32px; max-width: 460px; display: flex; flex-direction: column; gap: var(--s3); }
+  #drop.over { border-color: var(--accent); color: var(--accent); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+
+  /* right panel */
+  .ctx { background: color-mix(in srgb, var(--comp) 10%, transparent); }
+  .ctx .small { margin: 2px 0; }
+  .inst { border: 1px dashed var(--comp); border-radius: var(--radius); padding: var(--s3); display: flex; gap: var(--s2); align-items: center; }
+  .inst[aria-selected="true"] { border-style: solid; box-shadow: inset 0 0 0 1px var(--comp); }
+  .inst .title { flex: 1; min-width: 0; display: block; text-align: left; border: 0; background: transparent; padding: 0; font-size: var(--fs-base); font-weight: 600; }
+  .inst .title small { display: block; font-size: var(--fs-sm); font-weight: 400; color: var(--muted); margin-top: 2px; }
+
+  /* annotation pop-up */
+  #picker { position: fixed; z-index: 10; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.25); width: 290px; display: none; overflow: hidden; }
+  .ptabs { display: flex; border-bottom: 1px solid var(--border); }
+  .ptabs button { flex: 1; border: 0; border-radius: 0; background: transparent; min-height: 44px; font-size: var(--fs-base); color: var(--muted); }
+  .ptabs button[aria-selected="true"] { color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
+  #pickerList { padding: var(--s2); max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+  #pickerList button { width: 100%; justify-content: flex-start; gap: var(--s3); text-align: left; border: 0; font-size: var(--fs-base); padding: var(--s2) var(--s3); }
+  #pickerList button:hover, #pickerList button:focus { background: var(--bg); }
+  #pickerList .thumb { width: 64px; height: 32px; object-fit: cover; object-position: left top; border-radius: var(--s1); border: 1px solid var(--border); flex: none; background: #fff; }
+  #pickerList .new { color: var(--comp); font-weight: 600; border-top: 1px solid var(--border); border-radius: 0; margin-top: var(--s1); padding-top: var(--s3); }
+  #pickerList p { padding: var(--s2) var(--s3); }
+  #pickerList .grow { flex: 1; }
+  #annItems .opt { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--radius); cursor: pointer; font-size: var(--fs-base); }
+  #annItems .opt:hover, #annItems .opt:focus-within { background: var(--bg); }
+  #annItems .opt input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--accent); }
+  #annItems .opt input:checked ~ .grow { font-weight: 600; }
+  .pfootRow { display: flex; gap: var(--s2); }
+  .pfootRow .del { flex: 1; }
+  .dType { display: flex; flex-direction: column; gap: var(--s1); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tBadges { display: flex; flex-wrap: wrap; gap: var(--s1); }
+  .tBadge { background: var(--c); color: #fff; font-size: var(--fs-sm); font-weight: 600; padding: 2px var(--s2); border-radius: 4px; }
+  /* type sections in the details panel: undo the sidebar's section padding/border so only one divider shows between types */
+  aside#details section.dType { padding: 0; border-bottom: 0; gap: var(--s1); }
+  aside#details section.dType + section.dType { border-top: 1px solid var(--border); padding-top: var(--s4); }
+  .dtHead { display: flex; align-items: center; gap: var(--s2); }
+  .dtHead h3 { margin: 0; font-size: var(--fs-base); }
+  .dtHead .del { margin-left: auto; }
+  /* annotation properties: a two-column form in the details panel (label | dropdown or text box) */
+  .props { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--s2) var(--s3); align-items: center; padding: var(--s2) 0; }
+  .prop { display: contents; }
+  .pName { font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+  .props select, .props input[type=text] { min-height: 36px; font-size: var(--fs-sm); padding: var(--s1) var(--s2); }
+  .props select.unset { color: var(--muted); }
+  .pCount { margin-left: auto; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+  /* settings: properties editor */
+  .propsEd { margin-left: 52px; border-top: 1px dashed var(--border); padding-top: var(--s2); display: flex; flex-direction: column; gap: var(--s2); }
+  .peHead { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+  .peList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+  /* (more specific than `.libItems li`, which would otherwise stack these into a column) */
+  .libItems .peList li { display: grid; grid-template-columns: 160px 110px minmax(0, 1fr) auto auto; gap: var(--s2); align-items: center; padding: 0; border: 0; }
+  .peList input[type=text], .peList select { min-height: 36px; font-size: var(--fs-sm); }
+  .pe-on { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--fs-sm); white-space: nowrap; }
+  @media (max-width: 760px) { .peList li { grid-template-columns: 1fr 1fr; } .propsEd { margin-left: 0; } }
+  #pickerList button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
+  .pfoot { border-top: 1px solid var(--border); padding: var(--s3); background: var(--panel); display: flex; flex-direction: column; gap: var(--s3); }
+  .pfoot .del { width: auto; border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .pfoot .del:hover { background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: var(--danger); }
+
+  /* dialogs */
+  dialog { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text); padding: var(--s5); width: min(400px, calc(100vw - 32px)); }
+  dialog form { display: flex; flex-direction: column; gap: var(--s4); }
+  dialog form > .small { align-self: flex-start; }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog h2 { font-size: var(--fs-lg); text-transform: none; letter-spacing: 0; color: var(--text); min-height: 0; }
+  dialog h3 { font-size: var(--fs-base); margin: var(--s2) 0 0; }
+  dialog menu { display: flex; justify-content: flex-end; gap: var(--s2); padding: 0; margin: var(--s2) 0 0; }
+  #reportDlg { width: min(520px, calc(100vw - 32px)); }
+  .field { display: flex; flex-direction: column; gap: var(--s2); font-size: var(--fs-sm); font-weight: 600; }
+  .field input, .field select, .field textarea { font-weight: 400; }
+  .field input[type=color] { width: 64px; height: var(--control-h); padding: 2px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+  .fields { display: flex; flex-direction: column; gap: var(--s4); }
+  .fields .small { align-self: flex-start; }
+  /* swatch previews an annotation's colour + border style */
+  .swatch { width: 16px; height: 16px; flex: none; border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); border-radius: 2px; }
+  .swatch.big { width: 28px; height: 22px; }
+  .swatch[data-border=thin] { border-width: 1px; }
+  .swatch[data-border=double], .swatch[data-border=thick_inner] { border-style: double; border-width: 4px; }
+  .swatch[data-border=dashed], .swatch[data-border=longdash], .swatch[data-border=dashdot] { border-style: dashed; }
+  .swatch[data-border=dotted], .swatch[data-border=dashdotdot] { border-style: dotted; }
+  .swatch[data-border=corner_tab] { box-shadow: inset 4px 4px 0 -1px var(--c); }
+  .psearch { margin-bottom: var(--s1); }
+  #pickerInfo { position: fixed; z-index: 11; display: none; width: 300px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.2); padding: var(--s4); font-size: var(--fs-sm); }
+  #pickerInfo > * + * { margin-top: var(--s3); }
+  #pickerInfo p { line-height: 1.5; }
+  #pickerInfo .infoHead { display: flex; gap: var(--s3); align-items: center; }
+  #pickerInfo .infoHead strong { display: block; font-size: var(--fs-base); }
+  #pickerInfo .infoHead .hint { display: block; }
+  #pickerInfo .infoWcag div { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
+  #pickerInfo .sc { border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 var(--s2); font-variant-numeric: tabular-nums; }
+  .pgroup { font-size: var(--fs-sm); font-weight: 700; color: var(--muted); padding: var(--s3) var(--s3) var(--s1); }
+  #annItems { display: flex; flex-direction: column; gap: 2px; }
+  /* settings as a full page */
+  dialog.page { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; border: 0; border-radius: 0; padding: 0; background: var(--bg); }
+  dialog.page form { height: 100%; gap: 0; }
+  .pageHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) var(--s5); background: var(--panel); border-bottom: 1px solid var(--border); }
+  .pageBody { flex: 1; overflow: auto; padding: var(--s5); display: flex; flex-direction: column; gap: var(--s5); }
+  .setSec { max-width: 1200px; width: 100%; margin: 0 auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: var(--s5); display: flex; flex-direction: column; gap: var(--s4); }
+  .setSec h3 { margin: 0 0 var(--s2); font-size: var(--fs-lg); }
+  .secHead { display: flex; gap: var(--s4); justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+  .secHead .hint { max-width: 70ch; }
+  .secActions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+  .libLayout { display: grid; grid-template-columns: 300px minmax(0, 1fr); /* groups | selected group's annotations */ gap: var(--s4); align-items: start; }
+  .libNav { position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; padding: var(--s2); border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+  .libNav h4 { margin: 0; padding: var(--s2) var(--s3); font-size: var(--fs-sm); color: var(--muted); }
+  #groupList { display: flex; flex-direction: column; gap: 2px; }
+  .grp { width: 100%; justify-content: flex-start; gap: var(--s2); border: 0; background: transparent; text-align: left; font-size: var(--fs-base); padding: var(--s2) var(--s3); min-height: 44px; }
+  .grp:hover { background: var(--bg); }
+  .grp[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+  .grp .grpName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grp .dots { display: flex; gap: 2px; }
+  .grp .dots i { width: 8px; height: 8px; border-radius: 50%; }
+  .grp .count { font-size: var(--fs-sm); color: var(--muted); background: var(--bg); border-radius: 999px; padding: 0 var(--s2); min-width: 28px; text-align: center; }
+  /* "Groups" label + Add group on one row, with a divider under it */
+  .libNavHead { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin: 0 calc(-1 * var(--s2)) var(--s2); padding: 0 var(--s2) var(--s2) 0; border-bottom: 1px solid var(--border); }
+  .libNavHead h4 { padding-left: calc(var(--s2) + var(--s3)); } /* lines up with the group names below */
+  .libDetail { min-width: 0; }
+  .libEmpty { padding: var(--s5) var(--s4); text-align: center; }
+  .libGroup { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .libHead { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); background: var(--bg); border-bottom: 1px solid var(--border); }
+  .libHead .groupName { flex: 1; max-width: 340px; font-weight: 700; background: var(--panel); }
+  .libAdd { padding: var(--s3) var(--s4); border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: var(--s2); } /* Add annotation: last item in the group */
+  .libItems { list-style: none; margin: 0; padding: 0; }
+  .libItems li { padding: var(--s3) var(--s4); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--s2); }
+  .libItems li:last-child { border-bottom: 0; }
+  .libRow { display: flex; align-items: center; gap: var(--s2); }
+  .libRow input[type=color] { width: 44px; height: var(--control-h); padding: 2px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); flex: none; }
+  .libRow .tName { flex: 1; min-width: 0; font-weight: 600; }
+  .libRow select { width: 190px; flex: none; }
+  .libRow .used { min-width: 64px; text-align: right; white-space: nowrap; }
+  .libRow2 { display: flex; gap: var(--s2); align-items: flex-start; padding-left: 52px; }
+  .libRow2 textarea { min-height: 56px; font-size: var(--fs-sm); font-weight: 400; }
+  .libRow2 .desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); font-weight: 600; color: var(--muted); }
+  .libRow2 .wcag { display: flex; flex-direction: column; gap: var(--s1); font-size: var(--fs-sm); font-weight: 600; color: var(--muted); width: 220px; flex: none; }
+  .libRow2 .wcag textarea { font-size: var(--fs-sm); font-weight: 400; min-height: 56px; resize: none; }
+  @media (max-width: 900px) { .libLayout { grid-template-columns: 1fr; } .libNav { position: static; } }
+  @media (max-width: 760px) { .libRow { flex-wrap: wrap; } .libRow select { width: 100%; } .libRow2 { flex-direction: column; padding-left: 0; } .libRow2 .wcag { width: 100%; } .pageBody { padding: var(--s4); } }
+  .logoRow { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; }
+  #logoPreview { max-height: 48px; max-width: 180px; object-fit: contain; border: 1px solid var(--border); border-radius: var(--radius); padding: var(--s1); background: #fff; }
+
+  @media (max-width: 900px) {
+    main { flex-direction: column; overflow: auto; }
+    nav, aside { width: 100%; border: 0; border-bottom: 1px solid var(--border); overflow: visible; }
+    #center { flex: none; } #stage { min-height: 50vh; padding: var(--s4); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button id="navToggle" class="icon tbtn" aria-controls="sidenav" aria-expanded="true" aria-label="Hide sidebar" title="Hide sidebar (Ctrl/⌘ \)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+  <h1>DCAA</h1>
+</header>
+<main>
+  <nav id="sidenav" aria-label="Project">
+    <div class="navTabs" role="tablist" aria-label="Project">
+      <button role="tab" id="tabPages" aria-controls="panelPages" aria-selected="true">Screens <span class="count" id="pageCount">0</span></button>
+      <button role="tab" id="tabComps" aria-controls="panelComps" aria-selected="false" tabindex="-1">Components <span class="count" id="compCount">0</span></button>
+    </div>
+    <section id="panelPages" role="tabpanel" aria-labelledby="tabPages">
+      <h2>All screens <label class="btn plus" title="Add screens">+<input type="file" id="addPages" accept="image/*" multiple aria-label="Add screens from images"></label></h2>
+      <ul class="tree" id="pages"></ul>
+    </section>
+    <section id="panelComps" role="tabpanel" aria-labelledby="tabComps" hidden>
+      <h2>All components <button class="plus" id="captureBtn" aria-pressed="false" aria-label="Capture a component from the page" title="Capture a component from the page">+</button></h2>
+      <ul class="tree" id="comps"></ul>
+      <p class="hint">Click <strong>+</strong> and drag over part of a screen, such as the header, to capture it. You can also draw an area and pick the <strong>Components</strong> tab.</p>
+    </section>
+    <section id="onPage" hidden></section>
+  </nav>
+  <div id="center">
+    <div id="tabs" role="tablist" aria-label="Open screens and components"></div>
+    <div id="viewBar" hidden>
+      <div id="modeBar" role="group" aria-label="What to show on the screen">
+        <button type="button" data-mode="ann" aria-pressed="true">Annotations</button>
+        <button type="button" data-mode="reading" aria-pressed="false"><span class="mb circle" aria-hidden="true"></span>Reading order</button>
+        <button type="button" data-mode="focus" aria-pressed="false"><span class="mb square" aria-hidden="true"></span>Focus order</button>
+      </div>
+      <div id="viewStats"></div>
+    </div>
+    <div id="stageBox">
+    <div id="stage">
+      <div id="drop">Drop screenshots here, paste one (Ctrl/⌘+V), or use <strong>+</strong> next to Screens. Each image becomes a screen.<br><br>Drag on the image to draw an area, then choose an annotation or a component.</div>
+      <div id="wrap"><canvas id="canvas" aria-label="Annotation canvas"></canvas><div id="overlay"></div></div>
+    </div>
+    <div id="fab" role="toolbar" aria-label="Actions">
+      <button id="undo" class="tb" aria-label="Undo" data-tip="Undo (⌘Z)" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <span class="tbsep" aria-hidden="true"></span>
+      <button id="openProjectBtn" class="tb" aria-label="Open project" data-tip="Open project"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 14l1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></svg></button>
+      <button id="saveProject" class="tb" aria-label="Save project" data-tip="Save project" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>
+      <span class="tbsep" aria-hidden="true"></span>
+      <div class="tbwrap">
+        <button id="exportBtn" class="tb" aria-label="Export" data-tip="Export" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="m16 6-4-4-4 4"/><path d="M12 2v13"/></svg><svg class="ico chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></button>
+        <div id="exportMenu" role="menu" aria-label="Export" hidden>
+          <button role="menuitem" id="exportReport"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg><span>Customer report…<small>Standalone HTML to share</small></span></button>
+          <button role="menuitem" id="exportPng"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>Image (PNG)<small>Current tab with annotations</small></span></button>
+          <button role="menuitem" id="exportJson"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2 2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg><span>Data (JSON)<small>Annotation coordinates</small></span></button>
+        </div>
+      </div>
+      <span class="tbsep" aria-hidden="true"></span>
+      <button id="settingsBtn" class="tb" aria-label="Settings" data-tip="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <input type="file" id="openProject" accept=".json,application/json" hidden>
+    </div>
+    <div id="zoomBar" role="toolbar" aria-label="Zoom" hidden>
+      <button id="zoomOut" class="icon" aria-label="Zoom out" title="Zoom out (Ctrl/⌘ −)">−</button>
+      <button id="zoomPct" class="pct" aria-label="Reset zoom to 100%" title="Reset to 100%">100%</button>
+      <button id="zoomIn" class="icon" aria-label="Zoom in" title="Zoom in (Ctrl/⌘ +)">+</button>
+      <button id="zoomFit" class="small" title="Fit to screen (Ctrl/⌘ 0)">Fit</button>
+    </div>
+    </div>
+    <div id="banner" role="status"><div>Drag over the part of the screen to capture as a component. Press Esc to cancel. <button id="cancelCapture">Cancel</button></div></div>
+  </div>
+  <aside id="details" aria-labelledby="dpTitle" hidden></aside>
+</main>
+<div id="picker" role="dialog" aria-label="Choose annotation or component">
+  <div class="ptabs" role="tablist" id="ptabs">
+    <button role="tab" id="ptAnn" aria-selected="true" aria-controls="pickerList">Annotations</button>
+    <button role="tab" id="ptComp" aria-selected="false" aria-controls="pickerList">Components</button>
+  </div>
+  <div id="pickerList" role="tabpanel"></div>
+  <div id="pickerFoot" class="pfoot"></div>
+</div>
+<aside id="pickerInfo" aria-label="Annotation details"></aside>
+<dialog id="settings" class="page" aria-labelledby="setTitle"><form method="dialog">
+  <div class="pageHead">
+    <h2 id="setTitle">Settings</h2>
+    <button value="close" class="primary">Done</button>
+  </div>
+  <div class="pageBody">
+    <section class="setSec">
+      <div class="secHead">
+        <div>
+          <h3>Annotations</h3>
+          <p class="hint">The annotations offered in the pop-up, grouped by category. Names, descriptions, WCAG criteria and border styles come from the <strong>a11y-png-annotation</strong> skill; the Images group follows its 1.1.1 guidance. Set each annotation's colour and border style here. Changes are saved with the project.</p>
+        </div>
+        <div class="secActions">
+          <button type="button" id="resetLib" class="small">Reset to default</button>
+        </div>
+      </div>
+      <div class="libLayout">
+        <div class="libNav">
+          <div class="libNavHead">
+            <h4 id="grpHead">Groups</h4>
+            <button type="button" id="addGroup" class="small">+ Add group</button>
+          </div>
+          <div id="groupList" role="tablist" aria-orientation="vertical" aria-labelledby="grpHead"></div>
+        </div>
+        <div id="libGroups" class="libDetail" role="tabpanel"></div>
+      </div>
+    </section>
+    <section class="setSec">
+      <h3>New areas</h3>
+      <label class="field">When I draw an area
+        <select id="defaultType"></select>
+      </label>
+    </section>
+  </div>
+</form></dialog>
+<dialog id="reportDlg" aria-labelledby="repHead"><form method="dialog">
+  <h2 id="repHead">Customer report</h2>
+  <p class="hint">Saves one HTML file your customer can open in any browser, with no install. It has your logo, a summary, and every screen and component with its annotations.</p>
+  <div class="logoRow">
+    <img id="logoPreview" alt="Logo preview" hidden>
+    <label class="btn small">Upload logo<input type="file" id="logoFile" accept="image/*"></label>
+    <button type="button" class="small" id="logoRemove" hidden>Remove logo</button>
+  </div>
+  <div class="fields">
+    <label class="field">Report title<input id="repName"></label>
+    <label class="field">Prepared for<input id="repFor" placeholder="Customer name"></label>
+    <label class="field">Prepared by<input id="repBy" placeholder="Your name or team"></label>
+    <label class="field">Brand colour<input type="color" id="repColor"></label>
+    <label class="field">High-level summary<textarea id="repSummary" rows="5" placeholder="What was reviewed and the main findings."></textarea></label>
+    <button type="button" class="small" id="repAuto">Fill in a summary from the annotations</button>
+  </div>
+  <menu><button value="cancel" formnovalidate>Close</button><button value="ok" class="primary">Download report</button></menu>
+</form></dialog>
+<dialog id="placeDlg" aria-labelledby="placeTitle"><form method="dialog">
+  <h2 id="placeTitle">Add to screens</h2>
+  <p class="hint">Tick the screens this component appears on. Unticking a screen removes the component from it.</p>
+  <div class="placeHead"><label class="selAll"><input type="checkbox" id="placeAll"> All screens</label><span class="hint" id="placeCount" aria-live="polite"></span></div>
+  <ul id="placeList" class="placeList"></ul>
+  <menu><button value="cancel" formnovalidate>Cancel</button><button value="ok" class="primary">Save</button></menu>
+</form></dialog>
+<dialog id="dlg"><form method="dialog">
+  <h2 id="dlgTitle"></h2><p id="dlgMsg" class="hint"></p>
+  <input id="dlgInput" aria-labelledby="dlgTitle">
+  <menu><button value="cancel" formnovalidate>Cancel</button><button value="ok" class="primary" id="dlgOk">OK</button></menu>
+</form></dialog>
+
+<script>
+// Annotation library — the source of truth for names, descriptions, WCAG criteria and border styles is the
+// a11y-png-annotation skill (scripts/annotate.py CATEGORIES + SKILL.md + references/wcag-2.2-aa-checklist.md).
+// The Images group isn't a skill category; it's built from the skill's 1.1.1 image guidance.
+// Colours and border styles are editable in Settings and saved with the project (project.groups / project.types).
+const DEFAULT_GROUPS = [
+  { id: 'landmarks', name: 'Landmarks' },
+  { id: 'structure', name: 'Content structure' },
+  { id: 'controls',  name: 'Interactive controls' },
+  { id: 'status',    name: 'Status & live regions' },
+  { id: 'images',    name: 'Images' },
+];
+const DEFAULT_TYPES = [
+  { id: 'landmark', group: 'landmarks', label: 'Landmark',                color: '#7b3fe4', border: 'double',      wcag: '1.3.1; 2.4.1',
+    description: 'A page region exposed to assistive tech: <header>, <main>, <footer>, <nav>, <search>, <section aria-labelledby>, <aside> or a named <form>. Set its role below; give it a name when there is more than one of the same kind.' },
+  { id: 'heading',  group: 'structure', label: 'Heading',                 color: '#1f5fd1', border: 'thin',        wcag: '1.3.1; 2.4.6; 2.4.10',
+    description: '<h1>–<h6>. One H1 per page; levels follow a logical hierarchy; the text describes its section.' },
+  { id: 'list',     group: 'structure', label: 'List',                    color: '#0277bd', border: 'longdash',    wcag: '1.3.1',
+    description: '<ul>/<ol> grouping related items: A–Z filters, results grids, menus, pagination, social and footer link rows.' },
+  { id: 'card',     group: 'structure', label: 'Card',                    color: '#23699c', border: 'thin',        wcag: '1.1.1; 2.4.4; 2.5.8',
+    description: '<article> around a card. The title link is the only interactive part; the thumbnail gets alt="" if it repeats the title.' },
+  { id: 'address',  group: 'structure', label: 'Address',                 color: '#3d6e9e', border: 'dashdot',     wcag: '1.3.1',
+    description: '<address> for contact or postal details.' },
+  { id: 'link',     group: 'controls',  label: 'Link',                    color: '#077a4d', border: 'thin',        wcag: '2.4.4; 2.4.7; 1.1.1; 2.5.8',
+    description: '<a href>. Name from the link text; destination clear from text or context. Icon-only links need screen-reader text and a 24×24px target.' },
+  { id: 'button',   group: 'controls',  label: 'Button',                  color: '#00796b', border: 'corner_tab',  wcag: '4.1.2; 2.1.1; 2.5.3; 2.5.8; 1.4.11',
+    description: 'A real HTML <button>. Enter and Space activate it; icon-only buttons need screen-reader text; disclosures use aria-expanded.' },
+  { id: 'input',    group: 'controls',  label: 'Input / text field',      color: '#2e7d32', border: 'dashdotdot',  wcag: '1.3.1; 1.3.5; 3.3.2; 4.1.2',
+    description: 'Form input with a real <label> (a placeholder is not a label). Add autocomplete tokens on inputs that collect user info.' },
+  { id: 'combobox', group: 'controls',  label: 'Select / combobox',       color: '#4a7a28', border: 'dashdotdot',  wcag: '1.3.1; 3.3.2; 4.1.2; 2.1.1; 2.5.8',
+    description: 'Native <select>, or the ARIA combobox pattern with aria-expanded and aria-controls. Arrow keys move through options.' },
+  { id: 'status',   group: 'status',    label: 'Status message',          color: '#a35400', border: 'dashdot',     wcag: '4.1.3; 1.3.1',
+    description: 'Live region for updates such as “Showing 1–20 of 84”: role="status" (polite) or aria-live.' },
+  { id: 'img-informative', group: 'images', label: 'Informative image',   color: '#9a3412', border: 'solid',       wcag: '1.1.1',
+    description: 'Conveys information. alt describes its content or purpose without repeating nearby visible text.' },
+  { id: 'img-decorative',  group: 'images', label: 'Decorative image',    color: '#6d5a52', border: 'dotted',      wcag: '1.1.1',
+    description: 'Purely visual. Use alt="" (or aria-hidden="true") so screen readers skip it.' },
+  { id: 'img-active',      group: 'images', label: 'Active image',        color: '#c2410c', border: 'corner_tab',  wcag: '1.1.1; 2.4.4; 4.1.2',
+    description: 'An image that is a link or button. alt describes the action or destination, not the picture.' },
+];
+// Border styles from the skill: categories differ by line style as well as colour, so nothing relies on colour alone (WCAG 1.4.1).
+const BORDERS = { solid: 'Solid', thin: 'Thin', double: 'Double', thick_inner: 'Thick + inner line', dashed: 'Dashed', dotted: 'Dotted',
+  dashdot: 'Dash-dot', longdash: 'Long dash', dashdotdot: 'Dash-dot-dot', corner_tab: 'Corner tab' };
+const DASHES = { dashed: [8, 5], dotted: [2, 4], dashdot: [10, 4, 2, 4], longdash: [16, 6], dashdotdot: [10, 4, 2, 4, 2, 4] };
+/* ---------- annotation properties ----------
+   Each annotation type can define properties (edited in Settings), e.g. Heading → Level H1–H6, Landmark → Role.
+   type.props = [{ id, name, kind: 'choice' | 'text', options: [{ value, label, description? }], onLabel }]
+   Values live on the element, per type: area.props = { [typeId]: { [propId]: value } }.
+   onLabel: the chosen value is short enough to show on the canvas badge ("1. Heading H2"). */
+const opt = (...vals) => vals.map(v => ({ value: v, label: v }));
+const LANDMARK_ROLES = [
+  { value: 'banner',        label: 'Banner',        description: 'Site header: <header> → role banner. Only one per page; not nested in main or aside.' },
+  { value: 'main',          label: 'Main',          description: 'Primary content: <main>. One per page; the target of the skip link.' },
+  { value: 'contentinfo',   label: 'Contentinfo',   description: 'Page footer: <footer> → role contentinfo. Often holds <address> and footer link lists.' },
+  { value: 'navigation',    label: 'Navigation',    description: '<nav aria-label="…"> for menus, filters and pagination. Label each nav so they can be told apart; mark the current page with aria-current.' },
+  { value: 'search',        label: 'Search',        description: '<search> landmark wrapping the search form.' },
+  { value: 'region',        label: 'Region',        description: '<section aria-labelledby> for a named region of the page.' },
+  { value: 'complementary', label: 'Complementary', description: '<aside> for supporting content related to the main content.' },
+  { value: 'form',          label: 'Form',          description: '<form> with an accessible name, so it is exposed as a form landmark.' },
+];
+const NAME_PROP = { id: 'name', name: 'Name', kind: 'text', onLabel: false };
+const DEFAULT_PROPS = {
+  landmark: [
+    { id: 'role', name: 'Role', kind: 'choice', onLabel: true, options: LANDMARK_ROLES },
+    { id: 'nameSrc', name: 'Accessible name', kind: 'choice', onLabel: false, options: opt('None', 'aria-label', 'aria-labelledby') },
+    NAME_PROP,
+  ],
+  heading:  [{ id: 'level', name: 'Level', kind: 'choice', onLabel: true, options: opt('H1', 'H2', 'H3', 'H4', 'H5', 'H6') }],
+  link:     [{ id: 'nameSrc', name: 'Accessible name', kind: 'choice', onLabel: false, options: opt('Visible text', 'aria-label', 'aria-labelledby') }, NAME_PROP],
+  button:   [{ id: 'nameSrc', name: 'Accessible name', kind: 'choice', onLabel: false, options: opt('Visible text', 'aria-label', 'aria-labelledby') }, NAME_PROP],
+  input:    [{ id: 'labelSrc', name: 'Label', kind: 'choice', onLabel: false, options: opt('<label>', 'aria-label', 'aria-labelledby') }, NAME_PROP],
+  combobox: [{ id: 'labelSrc', name: 'Label', kind: 'choice', onLabel: false, options: opt('<label>', 'aria-label', 'aria-labelledby') }, NAME_PROP],
+  status:   [{ id: 'live', name: 'Live region', kind: 'choice', onLabel: false, options: opt('role="status"', 'role="alert"', 'aria-live="polite"', 'aria-live="assertive"') }],
+  'img-informative': [{ id: 'alt', name: 'Alt text', kind: 'text', onLabel: false }],
+  'img-active':      [{ id: 'alt', name: 'Alt text', kind: 'text', onLabel: false }],
+};
+DEFAULT_TYPES.forEach(t => { t.props = structuredClone(DEFAULT_PROPS[t.id] || []); });
+
+const propVal = (a, tid, pid) => a.props?.[tid]?.[pid];
+function setProp(a, tid, pid, v) {
+  a.props ||= {}; const o = (a.props[tid] ||= {});
+  if (v === '' || v == null) delete o[pid]; else o[pid] = v;
+  if (!Object.keys(o).length) delete a.props[tid];
+  if (!Object.keys(a.props).length) delete a.props;
+}
+const optionLabel = (p, v) => (p.options || []).find(o => o.value === v)?.label ?? v;
+// short values for the badge, e.g. "H2", "Navigation"
+const shortProps = (a, tid) => (typeById(tid).props || []).filter(p => p.onLabel && p.kind === 'choice' && propVal(a, tid, p.id)).map(p => optionLabel(p, propVal(a, tid, p.id)));
+const badgeText = (a, tid) => [typeById(tid).label, ...shortProps(a, tid)].join(' ');
+
+// Older libraries had six separate landmark types; fold them into one Landmark with a Role property,
+// and give default properties to library types that don't have any yet.
+const OLD_LANDMARKS = { banner: 'banner', main: 'main', footer: 'contentinfo', nav: 'navigation', search: 'search', region: 'region' };
+function migrateProps(p) {
+  const hasOld = p.types.some(t => OLD_LANDMARKS[t.id] && t.group === 'landmarks');
+  if (hasOld && !p.types.some(t => t.id === 'landmark')) {
+    const at = p.types.findIndex(t => OLD_LANDMARKS[t.id]);
+    p.types = p.types.filter(t => !OLD_LANDMARKS[t.id]);
+    p.types.splice(Math.max(0, at), 0, structuredClone(DEFAULT_TYPES.find(t => t.id === 'landmark')));
+    const toLandmark = a => {
+      const ids = typesOf(a), role = ids.map(id => OLD_LANDMARKS[id]).find(Boolean);
+      if (!role) return;
+      const rest = ids.map(id => OLD_LANDMARKS[id] ? 'landmark' : id).filter((id, i, arr) => arr.indexOf(id) === i);
+      a.type = rest[0]; a.extra = rest.slice(1); if (!a.extra.length) delete a.extra;
+      if (!propVal(a, 'landmark', 'role')) setProp(a, 'landmark', 'role', role);
+    };
+    [...p.pages, ...p.components].forEach(d => d.areas.forEach(toLandmark));
+    if (OLD_LANDMARKS[p.defaultType]) p.defaultType = 'landmark';
+    if (OLD_LANDMARKS[p.lastType]) p.lastType = 'landmark';
+  }
+  p.types.forEach(t => { if (!t.props) t.props = structuredClone(DEFAULT_PROPS[t.id] || []); });
+}
+
+// Property fields for one type on one element (shown in the details panel).
+// Choice → <select> with "Not set"; text → input. `done` is called after a committed change.
+function propFields(a, tid, done) {
+  const t = typeById(tid), wrap = document.createElement('div');
+  wrap.className = 'props';
+  (t.props || []).forEach(p => {
+    const v = propVal(a, tid, p.id), row = document.createElement('div');
+    row.className = 'prop';
+    if (p.kind === 'choice') {
+      row.innerHTML = `<label class="pName" for="ps-${tid}-${p.id}">${esc(p.name)}</label><select id="ps-${tid}-${p.id}" class="${v ? '' : 'unset'}">
+        <option value="">Not set</option>${(p.options || []).map(o => `<option value="${esc(o.value)}" ${v === o.value ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+      row.querySelector('select').onchange = e => {
+        const before = serialize(); setProp(a, tid, p.id, e.target.value); commit(before);
+        done && done('select', p.id);
+      };
+    } else {
+      row.innerHTML = `<label class="pName" for="pt-${tid}-${p.id}">${esc(p.name)}</label><input type="text" id="pt-${tid}-${p.id}" placeholder="Not set">`;
+      const inp = row.querySelector('input'); let before;
+      inp.value = v || '';
+      inp.onfocus = () => { before = serialize(); };
+      inp.oninput = () => { setProp(a, tid, p.id, inp.value.trim() ? inp.value : ''); scheduleSave(); render(); };
+      inp.onchange = () => { if (before && before !== serialize()) pushUndo(before); before = serialize(); syncButtons(); };
+    }
+    row.dataset.prop = p.id;
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+const COMP_COLOR = '#7b3fe4';
+const FALLBACK_TYPE = { id: 'none', group: 'other', label: 'Annotation', color: '#616161', border: 'solid', description: '', wcag: '' };
+const types = () => project.types;
+const groups = () => project.groups;
+const typeById = id => types().find(t => t.id === id) || FALLBACK_TYPE;
+const groupName = id => groups().find(g => g.id === id)?.name || 'Other';
+// One element can carry several annotation types: `type` is the main one (sets border and colour),
+// `extra` holds the others in the order they were added.
+const typesOf = a => [a.type, ...(a.extra || [])];
+const hasType = (a, id) => typesOf(a).includes(id);
+const typeLabel = a => typesOf(a).map(id => badgeText(a, id)).join(' + ');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------- state ----------
+   project.pages[]      { id, name, imageId, w, h, areas[], instances[{ id, componentId, x, y, w, h }] }
+   project.components[] { id, name, imageId, w, h, origin{x,y}, areas[] }  (area coords relative to the component image)
+   project.groups[]     { id, name }  annotation groups (Landmarks, Images, …)
+   project.types[]      { id, group, label, description, wcag, color, border }  the annotation library
+   project.defaultType  type id applied to new areas, '__last__' for the last one picked, or null to ask each time
+   project.lastType     the annotation most recently picked in the pop-up
+   images               { imageId: dataURL }  — kept out of undo history */
+let project = { pages: [], components: [], groups: structuredClone(DEFAULT_GROUPS), types: structuredClone(DEFAULT_TYPES), defaultType: '__last__', lastType: null, nextId: 1 };
+
+// Projects saved before the library existed used a flat list (heading, landmark, button, …).
+// Map those onto the skill's annotations; anything without an equivalent is kept in an "Other" group.
+const LEGACY_MAP = { heading: 'heading', landmark: 'landmark', button: 'button', link: 'link', image: 'img-informative', form: 'input' };
+function migrateLibrary(p) {
+  if (p.groups?.length && p.types?.length && p.types.every(t => t.group)) return;
+  const extra = (p.types || []).filter(t => !LEGACY_MAP[t.id])
+    .map(t => ({ id: t.id, group: 'other', label: t.label, color: t.color, border: 'solid', description: '', wcag: '' }));
+  p.groups = structuredClone(DEFAULT_GROUPS);
+  p.types = structuredClone(DEFAULT_TYPES);
+  if (extra.length) { p.groups.push({ id: 'other', name: 'Other' }); p.types.push(...extra); }
+  const remap = id => LEGACY_MAP[id] || id;
+  [...p.pages, ...p.components].forEach(d => d.areas.forEach(a => { a.type = remap(a.type); if (a.extra) a.extra = a.extra.map(remap); }));
+  if (p.defaultType) p.defaultType = remap(p.defaultType);
+}
+let images = {};
+const imgCache = {};
+let tabs = [];                // open tabs: [{ kind, id }]
+let current = null;           // the active tab
+let curImg = null;
+let sel = { area: null, inst: null };
+let undoStack = [], drag = null, capturing = false, pickerTab = 'ann';
+
+const uid = p => p + (project.nextId++);
+const page = id => project.pages.find(p => p.id === id);
+const comp = id => project.components.find(c => c.id === id);
+const docOf = t => t && (t.kind === 'page' ? page(t.id) : comp(t.id));
+const doc = () => docOf(current);
+const isPage = () => current?.kind === 'page';
+const usage = cid => project.pages.filter(p => p.instances.some(i => i.componentId === cid));
+const serialize = () => JSON.stringify(project);
+const noSel = () => ({ area: null, inst: null });
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+const canvas = $('canvas'), ctx = canvas.getContext('2d');
+
+/* ---------- images ---------- */
+function getImg(imageId) {
+  if (!imgCache[imageId]) imgCache[imageId] = new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = images[imageId]; });
+  return imgCache[imageId];
+}
+const readFile = f => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(f); });
+
+async function addPages(files) {
+  files = [...files].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  const before = serialize(); let last;
+  for (const f of files) {
+    const imageId = uid('img'); images[imageId] = await readFile(f);
+    const im = await getImg(imageId);
+    const p = { id: uid('page'), name: f.name.replace(/\.[^.]+$/, '') || `Screen ${project.pages.length + 1}`, imageId, w: im.naturalWidth, h: im.naturalHeight, areas: [], instances: [] };
+    project.pages.push(p); last = p;
+  }
+  commit(before);
+  openDoc('page', last.id);
+}
+$('addPages').addEventListener('change', e => { addPages(e.target.files); e.target.value = ''; });
+const stage = $('stage'), drop = $('drop');
+stage.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+stage.addEventListener('dragleave', () => drop.classList.remove('over'));
+stage.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); addPages(e.dataTransfer.files); });
+window.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.items || [])].filter(i => i.type.startsWith('image/')).map(i => {
+    const f = i.getAsFile(); return new File([f], `Pasted ${project.pages.length + 1}`, { type: f.type });
+  });
+  if (files.length) addPages(files);
+});
+
+/* ---------- tabs ---------- */
+async function openDoc(kind, id) {
+  if (!id || !docOf({ kind, id })) { current = tabs[tabs.length - 1] || null; return activate(); }
+  if (!tabs.some(t => t.kind === kind && t.id === id)) tabs.push({ kind, id });
+  current = tabs.find(t => t.kind === kind && t.id === id);
+  return activate();
+}
+let curImgFor = null, activating = null; // the doc the loaded image belongs to; the tab currently loading
+async function activate() {
+  sel = noSel(); detail = null; selStep = null; hidePicker(); setCapture(false);
+  const d = doc();
+  if (!d) { curImg = null; curImgFor = null; return refresh(); }
+  const want = current; activating = want;
+  try { curImg = await getImg(d.imageId); }
+  catch (e) { curImg = null; } // image missing or unreadable: show the tab without it rather than a stale canvas
+  if (current !== want) return; // switched again while loading
+  activating = null; curImgFor = d;
+  layoutCanvas();
+  refresh();
+}
+
+/* View transform: doc coordinates -> canvas pixels.
+   Pages draw 1:1. Components also keep their real size, but get a margin around the image
+   so annotation labels can sit outside the captured area instead of being cut off. */
+let view = { k: 1, padX: 0, padY: 0, zoom: null };
+const COMP_MARGIN = 56;     // screen px of margin around a component
+const COMP_MIN_WIDTH = 420; // screen px, so even a narrow component has room for its labels
+// Fit: the largest zoom (never above 100%) at which the image fits the stage's width.
+function fitZoom(d) {
+  const st = getComputedStyle(stage);
+  const avail = stage.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight) - (isPage() ? 0 : 2 * COMP_MARGIN);
+  return clamp(avail / d.w, ZOOMS[0], 1);
+}
+const ZOOMS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
+const MAX_CANVAS_PX = 16e6; // keep the backing canvas within browser limits at high zoom
+function layoutCanvas() {
+  const d = doc(); if (!d) return;
+  const zoom = current.zoom ?? fitZoom(d); // per tab; null = Fit
+  const padX = isPage() ? 0 : Math.max(COMP_MARGIN, (COMP_MIN_WIDTH - d.w * zoom) / 2) / zoom;
+  const padY = isPage() ? 0 : COMP_MARGIN / zoom;
+  const W = d.w + 2 * padX, H = d.h + 2 * padY;
+  let k = zoom * (window.devicePixelRatio || 1);
+  if (W * H * k * k > MAX_CANVAS_PX) k = Math.sqrt(MAX_CANVAS_PX / (W * H));
+  view = { zoom, padX, padY, k };
+  canvas.style.width = W * zoom + 'px';
+  canvas.width = Math.round(W * k); canvas.height = Math.round(H * k);
+  $('zoomPct').textContent = Math.round(zoom * 100) + '%';
+  $('zoomFit').setAttribute('aria-pressed', current.zoom == null);
+}
+// Zoom to z, keeping the doc point under `anchor` (client coords; default: stage centre) in place.
+function zoomTo(z, anchor) {
+  const d = doc(); if (!d) return;
+  hidePicker();
+  const sr = stage.getBoundingClientRect();
+  anchor ||= { clientX: sr.left + stage.clientWidth / 2, clientY: sr.top + stage.clientHeight / 2 };
+  const p = toImg(anchor);
+  current.zoom = z == null ? null : clamp(z, ZOOMS[0], ZOOMS[ZOOMS.length - 1]);
+  layoutCanvas(); render();
+  const r = canvas.getBoundingClientRect(), z2 = view.zoom;
+  stage.scrollLeft += r.left + (p.x + view.padX) * z2 - anchor.clientX;
+  stage.scrollTop += r.top + (p.y + view.padY) * z2 - anchor.clientY;
+}
+const zoomStep = dir => {
+  const z = view.zoom || 1;
+  return dir > 0 ? (ZOOMS.find(v => v > z + 1e-3) ?? z) : ([...ZOOMS].reverse().find(v => v < z - 1e-3) ?? z);
+};
+$('zoomIn').onclick = () => zoomTo(zoomStep(1));
+$('zoomOut').onclick = () => zoomTo(zoomStep(-1));
+$('zoomPct').onclick = () => zoomTo(1);
+$('zoomFit').onclick = () => zoomTo(null);
+// Ctrl/⌘ + scroll, or a trackpad pinch, zooms around the pointer
+stage.addEventListener('wheel', e => {
+  if (!(e.ctrlKey || e.metaKey) || !doc()) return;
+  e.preventDefault();
+  zoomTo((view.zoom || 1) * Math.exp(-Math.max(-50, Math.min(50, e.deltaY)) * 0.004), e); // ~20% per wheel notch; smooth for pinch
+}, { passive: false });
+function closeTab(t) {
+  const i = tabs.indexOf(t);
+  tabs.splice(i, 1);
+  if (current === t) { current = tabs[i] || tabs[i - 1] || null; activate(); } else renderTabs();
+}
+// Close tabs whose page/component no longer exists; if the active one closed, open its neighbour (like a browser).
+function pruneTabs() {
+  const i = tabs.indexOf(current);
+  tabs = tabs.filter(docOf);
+  if (!docOf(current)) current = tabs[Math.min(Math.max(i, 0), tabs.length - 1)] || null;
+}
+
+function renderTabs() {
+  const el = $('tabs'); el.innerHTML = '';
+  tabs.filter(docOf).forEach(t => {
+    const d = docOf(t), on = t === current, div = document.createElement('div');
+    div.className = 'tab'; div.setAttribute('aria-selected', on);
+    div.innerHTML = `<button class="go" role="tab" aria-selected="${on}">${t.kind === 'comp' ? '<span class="diamond">◆</span> ' : ''}${esc(d.name)}</button><button class="x" aria-label="Close ${esc(d.name)}">×</button>`;
+    div.querySelector('.go').onclick = () => { current = t; activate(); };
+    div.querySelector('.x').onclick = () => closeTab(t);
+    el.appendChild(div);
+  });
+}
+
+/* ---------- geometry ---------- */
+function toImg(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * canvas.width / r.width / view.k - view.padX, y: (e.clientY - r.top) * canvas.height / r.height / view.k - view.padY };
+}
+// doc units per screen px — keeps strokes, labels and handles the same size on screen at any zoom
+const scale = () => view.forceScale ?? canvas.width / (canvas.getBoundingClientRect().width || canvas.width) / view.k;
+const norm = a => ({ x: Math.min(a.x, a.x + a.w), y: Math.min(a.y, a.y + a.h), w: Math.abs(a.w), h: Math.abs(a.h) });
+const inside = (p, a) => p.x >= a.x && p.x <= a.x + a.w && p.y >= a.y && p.y <= a.y + a.h;
+const contains = (o, a) => a.x >= o.x && a.y >= o.y && a.x + a.w <= o.x + o.w && a.y + a.h <= o.y + o.h;
+// Resize handle centre: the bottom-right corner, pulled back inside the visible canvas when the
+// annotation runs to the edge of the screenshot (otherwise the handle would be cut off).
+const HANDLE = 8; // half-size of the square resize handle, in screen px
+function handleAt(a) {
+  const d = doc(), r = HANDLE * scale() + 1;
+  return { x: Math.min(a.x + a.w, d.w + view.padX - r), y: Math.min(a.y + a.h, d.h + view.padY - r) };
+}
+const onHandle = (p, a) => { const h = handleAt(a); return Math.hypot(p.x - h.x, p.y - h.y) < (HANDLE + 4) * scale(); };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const selArea = () => sel.area && doc()?.areas.find(a => a.id === sel.area);
+const selInst = () => sel.inst && isPage() && doc().instances.find(i => i.id === sel.inst);
+
+/* ---------- drawing ---------- */
+function render() {
+  const d = doc();
+  $('wrap').style.display = d ? 'block' : 'none';
+  $('zoomBar').hidden = !d; $('viewBar').hidden = !d;
+  drop.style.display = project.pages.length ? 'none' : 'block';
+  // the open tab changed underneath us (e.g. its page or component was deleted): load the right image
+  if (d && curImgFor !== d) { renderOverlay([]); if (activating !== current) activate(); return; }
+  if (!d || !curImg) return renderOverlay([]);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = isPage() ? '#fff' : getComputedStyle(stage).backgroundColor; // component margin
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(view.k, 0, 0, view.k, view.padX * view.k, view.padY * view.k);
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(curImg, 0, 0, d.w, d.h);
+  if (!isPage()) { ctx.strokeStyle = COMP_COLOR; ctx.lineWidth = scale(); ctx.setLineDash([6 * scale(), 4 * scale()]); ctx.strokeRect(0, 0, d.w, d.h); ctx.setLineDash([]); }
+  if (mode !== 'ann') return renderOrderMode(d); // reading / focus order view
+  const s = scale(), lw = 2 * s, fs = 14 * s, labels = [];
+  // components are greyed out on pages; open them to see their annotations
+  (d.instances || []).forEach(inst => {
+    const c = comp(inst.componentId); if (!c) return;
+    const on = sel.inst === inst.id;
+    ctx.fillStyle = 'rgba(120,124,134,.10)'; ctx.fillRect(inst.x, inst.y, inst.w, inst.h);
+    ctx.fillStyle = stripes(); ctx.fillRect(inst.x, inst.y, inst.w, inst.h);
+    ctx.setLineDash([8 * s, 5 * s]); ctx.strokeStyle = COMP_COLOR; ctx.lineWidth = on ? lw * 2 : lw;
+    ctx.strokeRect(inst.x, inst.y, inst.w, inst.h); ctx.setLineDash([]);
+    labels.push({ box: inst, text: `◆ ${c.name} (${c.areas.length}) ↗`, color: COMP_COLOR, comp: c });
+  });
+  d.areas.forEach((a, i) => {
+    const t = typeById(a.type), on = sel.area === a.id;
+    ctx.fillStyle = t.color + '22'; ctx.fillRect(a.x, a.y, a.w, a.h);
+    strokeBorder(a, t, on ? lw * 1.6 : lw, s);
+    // one badge per type: "1. Main" then each extra type in its own colour (no "+" joining)
+    const segs = typesOf(a).map((id, k) => { const ty = typeById(id); return { text: k ? badgeText(a, id) : `${i + 1}. ${badgeText(a, id)}`, color: ty.color }; });
+    labels.push({ box: a, text: segs.map(g => g.text).join(' '), color: t.color, segs, area: a, num: i + 1 });
+  });
+  // the element whose label is hovered or focused gets a ring, so label and element read as a pair
+  const hov = hoverArea && d.areas.find(a => a.id === hoverArea);
+  if (hov) {
+    const g = 3 * s;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = lw * 3; ctx.strokeRect(hov.x - g, hov.y - g, hov.w + 2 * g, hov.h + 2 * g);
+    ctx.strokeStyle = typeById(hov.type).color; ctx.lineWidth = lw * 1.5; ctx.strokeRect(hov.x - g, hov.y - g, hov.w + 2 * g, hov.h + 2 * g);
+  }
+  const handleOn = selArea() || selInst();
+  if (handleOn) {
+    const hs = HANDLE * s, h = handleAt(handleOn);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = handleOn.type ? typeById(handleOn.type).color : COMP_COLOR; ctx.lineWidth = lw;
+    ctx.fillRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+    ctx.strokeRect(h.x - hs, h.y - hs, hs * 2, hs * 2);
+  }
+  const placed = drawLabels(labels, lw, fs); // after all boxes so labels are never hidden under another area
+  renderOverlay(labels.map((l, i) => ({ ...l, r: placed[i] })).filter(l => l.comp || l.area));
+  if (drag?.mode === 'draw') {
+    const r = norm(drag.rect), col = capturing ? COMP_COLOR : '#2557d6';
+    if (capturing) { ctx.fillStyle = 'rgba(123,63,228,.15)'; ctx.fillRect(r.x, r.y, r.w, r.h); }
+    ctx.setLineDash([6 * s, 4 * s]); ctx.strokeStyle = col; ctx.lineWidth = lw;
+    ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.setLineDash([]);
+  }
+}
+
+// Labels drawn on the canvas are also buttons: a component's label ("◆ Header (3) ↗") opens the component,
+// an annotation's label ("1. Heading") opens its details panel. Each button sits exactly over its drawn label,
+// positioned in % so it follows the canvas when it scales.
+// Redraw the canvas (e.g. for the hover ring) without rebuilding the label buttons, so the hovered or
+// focused button stays put.
+let keepOverlay = false;
+function redrawKeepingLabels() { keepOverlay = true; try { render(); } finally { keepOverlay = false; } }
+function renderOverlay(labelBoxes) {
+  if (keepOverlay) return;
+  const ov = $('overlay'), d = doc(); ov.innerHTML = '';
+  if (!d || drag) return;
+  const W = d.w + 2 * view.padX, H = d.h + 2 * view.padY;
+  labelBoxes.forEach(({ comp: c, area: a, num, r }) => {
+    if (c && !isPage()) return;
+    const b = document.createElement('button');
+    b.className = 'openLink';
+    if (c) {
+      b.setAttribute('aria-label', `Open component ${c.name} in a new tab`);
+      b.onclick = () => openDoc('comp', c.id);
+    } else {
+      b.setAttribute('aria-label', `${num}. ${typeLabel(a)}: show details`);
+      b.setAttribute('aria-expanded', detail?.kind === 'area' && detail.id === a.id);
+      b.setAttribute('aria-controls', 'details');
+      b.dataset.area = a.id;
+      b.onmouseenter = b.onfocus = () => { hoverArea = a.id; redrawKeepingLabels(); };
+      b.onmouseleave = b.onblur = () => { if (hoverArea === a.id) { hoverArea = null; redrawKeepingLabels(); } };
+      b.onclick = () => { detail = detail?.kind === 'area' && detail.id === a.id ? null : { kind: 'area', id: a.id }; sel = { area: a.id, inst: null }; hidePicker(); refresh(); };
+    }
+    Object.assign(b.style, { left: (r.x + view.padX) / W * 100 + '%', top: (r.y + view.padY) / H * 100 + '%', width: r.w / W * 100 + '%', height: r.h / H * 100 + '%' });
+    ov.appendChild(b);
+  });
+}
+
+// Very light diagonal stripes marking a component on a page. The tile is built in screen pixels and
+// scaled back by the view transform, so stripe spacing looks the same at every zoom.
+function stripes() {
+  const dpr = window.devicePixelRatio || 1, size = Math.round(10 * dpr);
+  const t = document.createElement('canvas'); t.width = t.height = size;
+  const g = t.getContext('2d');
+  g.strokeStyle = 'rgba(90,96,110,.22)'; g.lineWidth = Math.max(1, dpr);
+  g.beginPath(); g.moveTo(-1, size + 1); g.lineTo(size + 1, -1); g.moveTo(-1, 1); g.lineTo(1, -1); g.moveTo(size - 1, size + 1); g.lineTo(size + 1, size - 1); g.stroke();
+  const pat = ctx.createPattern(t, 'repeat');
+  pat.setTransform(new DOMMatrix().scale(1 / view.k));
+  return pat;
+}
+
+// Draw an annotation's outline in its border style (see BORDERS / DASHES).
+function strokeBorder(r, t, lw, s) {
+  const b = t.border || 'solid';
+  ctx.strokeStyle = t.color;
+  ctx.lineCap = b === 'dotted' ? 'round' : 'butt';
+  ctx.setLineDash((DASHES[b] || []).map(v => v * s));
+  ctx.lineWidth = b === 'thin' ? lw * .75 : b === 'thick_inner' ? lw * 1.75 : lw;
+  ctx.strokeRect(r.x, r.y, r.w, r.h);
+  ctx.setLineDash([]); ctx.lineCap = 'butt';
+  if (b === 'double' || b === 'thick_inner') {
+    const g = Math.min(4 * s + lw, r.w / 3, r.h / 3);
+    ctx.lineWidth = lw * .6; ctx.strokeRect(r.x + g, r.y + g, r.w - 2 * g, r.h - 2 * g);
+  }
+  if (b === 'corner_tab') {
+    const k = Math.min(12 * s, r.w / 2, r.h / 2);
+    ctx.lineWidth = lw * 2.2; ctx.beginPath();
+    ctx.moveTo(r.x, r.y + k); ctx.lineTo(r.x, r.y); ctx.lineTo(r.x + k, r.y); ctx.stroke();
+  }
+}
+
+// Label placement shared by the editor and the customer report (pure: no DOM, no app state — the report
+// embeds this function's source). For each label: lay its badges out in rows (never much wider than the
+// element), then choose the spot that covers the least of OTHER elements (an element's own containers don't
+// count), never overlaps another label, and stays close; a spot away from the element gets a leader line.
+// If every spot would cover something, an element with several types collapses to "[n. First] [+k]".
+function planLabels(items, o) {
+  const placed = [], out = [];
+  const inter = (r, b) => Math.max(0, Math.min(r.x + r.w, b.x + b.w) - Math.max(r.x, b.x)) * Math.max(0, Math.min(r.y + r.h, b.y + b.h) - Math.max(r.y, b.y));
+  const hits = r => placed.some(p => inter(r, p) > 0);
+  const fits = r => r.x >= o.bounds.x0 && r.y >= o.bounds.y0 && r.x + r.w <= o.bounds.x1 && r.y + r.h <= o.bounds.y1;
+  const contains = (p, c) => p !== c && c.x >= p.x && c.y >= p.y && c.x + c.w <= p.x + p.w && c.y + c.h <= p.y + p.h;
+  const layout = (segs, a) => {
+    const widths = segs.map(g => o.measure(g.text) + o.pad), maxW = Math.max(a.w, ...widths, o.minW), rows = [];
+    widths.forEach((bw, i) => { const row = rows[rows.length - 1]; if (row && row.w + o.gap + bw <= maxW) { row.items.push(i); row.w += o.gap + bw; } else rows.push({ items: [i], w: bw }); });
+    return { widths, rows, w: Math.max(...rows.map(r => r.w)), h: rows.length * o.rowH + (rows.length - 1) * o.gap };
+  };
+  const best = (a, w, h, obstacles) => {
+    const xs = [a.x, a.x + a.w - w, a.x + (a.w - w) / 2], ys = [a.y, a.y + a.h - h, a.y + (a.h - h) / 2], c = [];
+    for (let k = 0; k < 9; k++) { // k > 0: further out from the element (gets a leader line); up to ~8 rows away
+      const off = k * (o.rowH + o.gap);
+      xs.forEach(x => { c.push({ x, y: a.y - h - off, k }); c.push({ x, y: a.y + a.h + off, k }); });
+      ys.forEach(y => { c.push({ x: a.x + a.w + o.gap + off, y, k }); c.push({ x: a.x - w - o.gap - off, y, k }); });
+    }
+    c.push({ x: a.x, y: a.y, k: 0, inside: 1 }, { x: a.x + a.w - w, y: a.y + a.h - h, k: 0, inside: 1 });
+    let b = null;
+    c.forEach((p, i) => {
+      const r = { x: p.x, y: p.y, w, h };
+      if (!fits(r) || hits(r)) return;
+      const cover = obstacles.reduce((t, ob) => t + inter(r, ob), 0);
+      const score = cover * 4 + (p.inside ? w * h * 0.5 : 0) + p.k * w * h * 0.3 + i * 1e-6; // clear first, then close
+      if (!b || score < b.score) b = { r, score, cover, far: p.k > 0 };
+    });
+    return b;
+  };
+  // an item with `expand` (the element whose details are open) shows every badge, never "+k", and is placed first
+  const order = items.map((it, i) => i).sort((i, j) => (items[j].expand ? 1 : 0) - (items[i].expand ? 1 : 0));
+  order.forEach(idx => {
+    const it = items[idx], a = it.box, obstacles = items.map(x => x.box).filter(b => b !== a && !contains(b, a));
+    let segs = it.segs, L = layout(segs, a), b;
+    const compact = segs.length > 1 && !it.expand ? [segs[0], { text: '+' + (segs.length - 1), color: '#5b6475', more: true }] : null;
+    if (compact && L.rows.length > (o.maxRows || 2)) { segs = compact; L = layout(segs, a); } // no tall stacks: "[n. First] [+k]"
+    b = best(a, L.w, L.h, obstacles);
+    if (compact && segs !== compact && (!b || b.cover > 0)) {
+      const CL = layout(compact, a), cb = best(a, CL.w, CL.h, obstacles);
+      if (cb && (!b || cb.score < b.score)) { segs = compact; L = CL; b = cb; }
+    }
+    if (!b) { // nowhere free at all: start at the first spot that fits and move down until free
+      const r = { x: Math.max(o.bounds.x0, Math.min(a.x, o.bounds.x1 - L.w)), y: Math.max(o.bounds.y0, a.y - L.h), w: L.w, h: L.h };
+      while (hits(r) && r.y + L.h < o.bounds.y1) r.y += L.h + o.gap;
+      b = { r, far: false };
+    }
+    placed.push(b.r);
+    let leader = null;
+    // a leader line joins label and element whenever they don't touch (gap bigger than ~2 line widths)
+    const r0 = b.r, gx = Math.max(0, a.x - (r0.x + r0.w), r0.x - (a.x + a.w)), gy = Math.max(0, a.y - (r0.y + r0.h), r0.y - (a.y + a.h));
+    if (b.far || gx > o.gap * 2 || gy > o.gap * 2) {
+      const r = b.r, px = Math.max(a.x, Math.min(r.x + r.w / 2, a.x + a.w)), py = Math.max(a.y, Math.min(r.y + r.h / 2, a.y + a.h));
+      leader = { x1: Math.max(r.x, Math.min(px, r.x + r.w)), y1: Math.max(r.y, Math.min(py, r.y + r.h)), x2: px, y2: py };
+    }
+    out[idx] = { r: b.r, segs, rows: L.rows, widths: L.widths, leader };
+  });
+  return out;
+}
+
+function drawLabels(list, lw, fs) {
+  ctx.font = `600 ${fs}px system-ui, sans-serif`;
+  const pad = 5 * lw / 2, gap = lw, d = doc(), rowH = fs + pad * 1.6;
+  const plan = planLabels(list.map(l => ({ box: l.box, segs: l.segs || [{ text: l.text, color: l.color }], expand: !!l.area && detail?.kind === 'area' && detail.id === l.area.id })), {
+    measure: t => ctx.measureText(t).width, pad: pad * 2, rowH, gap, minW: 180 * lw / 2,
+    bounds: { x0: -view.padX, y0: -view.padY, x1: d.w + view.padX, y1: d.h + view.padY },
+  });
+  // leader lines (drawn under the labels) for labels placed away from their element
+  plan.forEach(p => {
+    if (!p.leader) return;
+    const L = p.leader, line = () => { ctx.beginPath(); ctx.moveTo(L.x1, L.y1); ctx.lineTo(L.x2, L.y2); ctx.stroke(); };
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 1.5; line();
+    ctx.strokeStyle = '#1d2330'; ctx.lineWidth = lw / 2; line();
+    ctx.fillStyle = '#1d2330'; ctx.beginPath(); ctx.arc(L.x2, L.y2, lw, 0, Math.PI * 2); ctx.fill();
+  });
+  plan.forEach(p => {
+    p.rows.forEach((row, ri) => {
+      let bx = p.r.x; const by = p.r.y + ri * (rowH + gap);
+      row.items.forEach(i => {
+        const g = p.segs[i], bw = p.widths[i];
+        ctx.fillStyle = g.color; ctx.fillRect(bx, by, bw, rowH);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = lw / 2; ctx.strokeRect(bx, by, bw, rowH);
+        ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(g.text, bx + pad, by + rowH / 2);
+        bx += bw + gap;
+      });
+    });
+  });
+  return plan.map(p => p.r);
+}
+
+/* ---------- pointer interaction ---------- */
+canvas.addEventListener('pointerdown', e => {
+  const d = doc(); if (!d) return;
+  if (mode !== 'ann') return orderDown(e);
+  hidePicker();
+  const p = toImg(e), before = serialize();
+  canvas.setPointerCapture(e.pointerId);
+  if (!capturing) {
+    const resizable = selArea() || selInst();
+    if (resizable && onHandle(p, resizable)) { drag = { mode: 'resize', a: resizable, ox: resizable.x + resizable.w - p.x, oy: resizable.y + resizable.h - p.y, before }; return; }
+    // Dragging an annotation's frame (border) moves it. Dragging anywhere inside — even inside a selected
+    // annotation — draws a new, nested one; a click inside selects the innermost annotation.
+    const edge = !e.altKey && frameAt(p);
+    if (edge) {
+      const r = edge.r;
+      sel = edge.kind === 'area' ? { area: r.id, inst: null } : { area: null, inst: r.id };
+      drag = { mode: 'move', a: r, dx: p.x - r.x, dy: p.y - r.y, before };
+      return refresh();
+    }
+    const hit = innermostAt(p);
+    if (hit) {
+      drag = { mode: 'pending', hit, start: p, before, rect: { x: clamp(p.x, 0, d.w), y: clamp(p.y, 0, d.h), w: 0, h: 0 } };
+      return;
+    }
+  }
+  sel = noSel();
+  drag = { mode: 'draw', rect: { x: clamp(p.x, 0, d.w), y: clamp(p.y, 0, d.h), w: 0, h: 0 }, before };
+  refresh();
+});
+// The annotation (or component) whose frame is under the point, within a few screen px of its border.
+// When frames overlap, the selected one wins, then the smallest.
+const FRAME = 6; // grab distance from the border, in screen px
+function frameAt(p) {
+  const d = doc(), t = FRAME * scale(), size = r => r.w * r.h;
+  const near = r => p.x >= r.x - t && p.x <= r.x + r.w + t && p.y >= r.y - t && p.y <= r.y + r.h + t
+    && (p.x <= r.x + t || p.x >= r.x + r.w - t || p.y <= r.y + t || p.y >= r.y + r.h - t);
+  const list = [
+    ...d.areas.filter(near).map(a => ({ kind: 'area', r: a, on: sel.area === a.id })),
+    ...(isPage() ? d.instances.filter(i => comp(i.componentId) && near(i)).map(i => ({ kind: 'inst', r: i, on: sel.inst === i.id })) : []),
+  ];
+  return list.sort((x, y) => (y.on - x.on) || (size(x.r) - size(y.r)))[0] || null;
+}
+// The smallest annotation (or component on a screen) under the point, so nested ones can be picked (e.g. a logo inside a banner).
+function innermostAt(p) {
+  const d = doc(), size = r => r.w * r.h;
+  const areas = d.areas.filter(a => inside(p, a)).map(a => ({ kind: 'area', r: a }));
+  const insts = isPage() ? d.instances.filter(i => comp(i.componentId) && inside(p, i)).map(i => ({ kind: 'inst', r: i })) : [];
+  return [...areas, ...insts].sort((x, y) => size(x.r) - size(y.r))[0] || null;
+}
+canvas.addEventListener('pointermove', e => {
+  const d = doc(); if (!d) return;
+  if (mode !== 'ann') return orderMove(e);
+  const p = toImg(e), W = d.w, H = d.h;
+  if (!drag) {
+    if (capturing) return canvas.style.cursor = 'crosshair';
+    const resizable = selArea() || selInst();
+    canvas.style.cursor = resizable && onHandle(p, resizable) ? 'nwse-resize' : !e.altKey && frameAt(p) ? 'move' : 'crosshair';
+    return;
+  }
+  // a press inside an unselected annotation becomes a drawing once the pointer actually moves
+  if (drag.mode === 'pending') {
+    if (Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < 3 * scale()) return;
+    sel = noSel(); drag.mode = 'draw';
+  }
+  const a = drag.a;
+  if (drag.mode === 'draw') { drag.rect.w = clamp(p.x, 0, W) - drag.rect.x; drag.rect.h = clamp(p.y, 0, H) - drag.rect.y; }
+  else if (drag.mode === 'move') {
+    if (!drag.moved && Math.hypot(p.x - drag.dx - a.x, p.y - drag.dy - a.y) < 3 * scale()) return; // still a click
+    drag.moved = true; a.x = clamp(p.x - drag.dx, 0, W - a.w); a.y = clamp(p.y - drag.dy, 0, H - a.h);
+  }
+  else if (drag.mode === 'resize') { a.w = Math.max(8, clamp(p.x + drag.ox, 0, W) - a.x); a.h = Math.max(8, clamp(p.y + drag.oy, 0, H) - a.y); }
+  render();
+});
+canvas.addEventListener('pointerup', async e => {
+  if (mode !== 'ann') return orderUp(e);
+  if (!drag) return;
+  const dr = drag; drag = null;
+  if (dr.mode === 'pending') { // a click (no drag) selects the innermost annotation or component
+    sel = dr.hit.kind === 'area' ? { area: dr.hit.r.id, inst: null } : { area: null, inst: dr.hit.r.id };
+    return refresh();
+  }
+  if (dr.mode === 'draw') {
+    const r = norm(dr.rect);
+    if (r.w > 6 * scale() && r.h > 6 * scale()) {
+      if (capturing) { setCapture(false); render(); return captureComponent(r); }
+      // default for new areas: a fixed annotation, or the last one picked ('__last__'), or none (ask)
+      const want = project.defaultType === '__last__' ? project.lastType : project.defaultType;
+      const def = types().some(t => t.id === want) && want;
+      const area = { id: uid('a'), ...r, type: def || types()[0]?.id || 'none', note: '' };
+      // selected after drawing so its resize handle shows (drag its frame to move it)
+      doc().areas.push(area); sel = { area: area.id, inst: null };
+      commit(dr.before);
+      // "last picked" is applied straight away; the pop-up still opens (with it ticked) so a different
+      // annotation or a component is one click away — just keep drawing to accept it
+      if (!def || project.defaultType === '__last__') showPicker(area, e.clientX, e.clientY, !!def);
+      return;
+    }
+  }
+  commit(dr.before);
+  // a click (no drag) on an annotation or component shows its details in the bottom panel (via refresh)
+});
+
+/* ---------- picker: Annotations | Components ---------- */
+let pickerArea = null, pickerEditing = false;
+// Open the details panel (where properties are edited) for an element whose types have properties,
+// without taking focus from the pop-up.
+function showPropsPanel(area) {
+  if (!doc()?.areas.includes(area) || !typesOf(area).some(id => typeById(id).props?.length)) return;
+  if (detail?.kind === 'area' && detail.id === area.id) return;
+  detail = { kind: 'area', id: area.id }; detailQuiet = true;
+  refresh();
+}
+function showPicker(area, x, y, editing = false) {
+  pickerArea = area; pickerEditing = editing;
+  if (editing) showPropsPanel(area);
+  $('ptabs').hidden = !isPage(); // components can't contain components
+  setPickerTab(isPage() && !editing ? pickerTab : 'ann');
+  renderPickerFoot(area);
+  const picker = $('picker');
+  picker.style.display = 'block';
+  const w = picker.offsetWidth, h = picker.offsetHeight;
+  picker.style.left = clamp(x + 8, 8, innerWidth - w - 8) + 'px';
+  picker.style.top = clamp(y + 8, 8, innerHeight - h - 8) + 'px';
+  $('pickerList').querySelector('button')?.focus();
+}
+function setPickerTab(tab) {
+  pickerTab = tab;
+  $('ptAnn').setAttribute('aria-selected', tab === 'ann');
+  $('ptComp').setAttribute('aria-selected', tab === 'comp');
+  const list = $('pickerList'), area = pickerArea; list.innerHTML = '';
+  if (tab === 'ann') {
+    list.innerHTML = '<input class="psearch" type="text" placeholder="Search annotations" aria-label="Search annotations"><div id="annItems"></div>';
+    const search = list.querySelector('.psearch');
+    search.oninput = () => renderAnnItems(area, search.value);
+    renderAnnItems(area, '');
+  } else {
+    hideInfo();
+    if (!project.components.length) list.insertAdjacentHTML('beforeend', '<p class="hint">No components yet.</p>');
+    project.components.forEach(c => {
+      const b = document.createElement('button');
+      b.innerHTML = `<img class="thumb" alt="" src="${images[c.imageId]}"><span><span class="diamond">◆</span> ${esc(c.name)}<br><span class="hint">${plural(c.areas.length, 'annotation')}</span></span>`;
+      b.onclick = () => areaToInstance(area, c);
+      list.appendChild(b);
+    });
+    const n = document.createElement('button'); n.className = 'new';
+    n.textContent = '+ New component from this area';
+    n.onclick = () => { hidePicker(); captureComponent(area, area); };
+    list.appendChild(n);
+  }
+}
+// Annotation options grouped by category (Landmarks, Images, …), filtered by the search box.
+function renderAnnItems(area, query) {
+  const box = $('annItems'), q = query.trim().toLowerCase(); box.innerHTML = '';
+  groups().forEach(g => {
+    const items = types().filter(t => t.group === g.id && (!q || `${t.label} ${g.name} ${t.description} ${t.wcag}`.toLowerCase().includes(q)));
+    if (!items.length) return;
+    box.insertAdjacentHTML('beforeend', `<p class="pgroup" aria-hidden="true">${esc(g.name)}</p>`);
+    items.forEach(t => {
+      // a checkbox per type: tick several for one element (the first ticked sets the border and colour; it isn't labelled)
+      const on = pickerEditing && hasType(area, t.id), only = on && typesOf(area).length === 1;
+      const row = document.createElement('label'); row.className = 'opt';
+      row.innerHTML = `<input type="checkbox" ${on ? 'checked' : ''} ${only ? 'aria-disabled="true"' : ''} aria-describedby="pickerInfo">
+        <span class="swatch" style="--c:${t.color}" data-border="${t.border}"></span><span class="grow">${esc(t.label)}</span>`;
+      if (only) row.title = 'An annotation needs at least one type';
+      const cb = row.querySelector('input');
+      row.onmouseenter = cb.onfocus = () => showInfo(t, row);
+      cb.onchange = () => toggleType(area, t.id, cb);
+      box.appendChild(row);
+      if (on && t.props?.length) { // properties are edited in the details panel; show how many are set
+        const set = t.props.filter(p => propVal(area, t.id, p.id)).length;
+        row.insertAdjacentHTML('beforeend', `<span class="pCount" title="Edit in the panel on the right">${set} of ${t.props.length} set</span>`);
+      }
+    });
+  });
+  if (!box.children.length) box.innerHTML = '<p class="hint">No annotations match.</p>';
+  // start with the main type (when editing), otherwise the first match
+  const start = box.querySelector('input:checked')?.closest('.opt') || box.querySelector('.opt');
+  start ? requestAnimationFrame(() => start.isConnected && start.dispatchEvent(new Event('mouseenter'))) : hideInfo();
+}
+// Tick = add the type to the element (the first tick on a new area whose type wasn't preset replaces its placeholder);
+// untick = remove it (never the last one). The pop-up stays open; Done closes it.
+function toggleType(area, id, cb) {
+  const before = serialize();
+  if (!pickerEditing) { area.type = id; area.extra = []; pickerEditing = true; project.lastType = id; }
+  else if (hasType(area, id)) {
+    if (typesOf(area).length === 1) { cb.checked = true; return; }
+    if (area.type === id) { area.type = area.extra[0]; area.extra = area.extra.slice(1); }
+    else area.extra = area.extra.filter(x => x !== id);
+    if (area.props?.[id]) { delete area.props[id]; if (!Object.keys(area.props).length) delete area.props; }
+  } else { area.extra = [...(area.extra || []), id]; project.lastType = id; }
+  if (!area.extra?.length) delete area.extra;
+  commit(before);
+  showPropsPanel(area); // ticked a type with properties → the form opens on the right
+  const q = document.querySelector('#pickerList .psearch')?.value || '';
+  renderAnnItems(area, q);
+  [...document.querySelectorAll('#annItems .opt')].find(r => r.querySelector('.grow').textContent === typeById(id).label)?.querySelector('input').focus();
+}
+
+// Pull-out beside the pop-up with the hovered/focused annotation's description, WCAG criteria and border style.
+function showInfo(t, anchor) {
+  if ($('picker').style.display !== 'block' || !anchor.isConnected) return; // pop-up already closed
+  const info = $('pickerInfo'), pr = $('picker').getBoundingClientRect(), ar = anchor.getBoundingClientRect();
+  info.innerHTML = `<div class="infoHead"><span class="swatch big" style="--c:${t.color}" data-border="${t.border}"></span>
+      <div><strong>${esc(t.label)}</strong><span class="hint">${esc(groupName(t.group))}</span></div></div>
+    ${t.description ? `<p>${esc(t.description)}</p>` : '<p class="hint">No description yet. Add one in Settings.</p>'}
+    ${t.wcag ? `<div class="infoWcag"><span class="hint">WCAG 2.2</span><div>${t.wcag.split(/[;,]\s*/).filter(Boolean).map(c => `<span class="sc">${esc(c)}</span>`).join('')}</div></div>` : ''}
+    <p class="hint">Border: ${esc(BORDERS[t.border] || 'Solid')}</p>`;
+  info.style.display = 'block';
+  const w = info.offsetWidth, h = info.offsetHeight, gap = 8;
+  const right = pr.right + gap + w <= innerWidth - 8;
+  info.style.left = (right ? pr.right + gap : Math.max(8, pr.left - gap - w)) + 'px';
+  info.style.top = clamp(ar.top - 8, 8, innerHeight - h - 8) + 'px';
+  info.dataset.side = right ? 'right' : 'left';
+}
+function hideInfo() { $('pickerInfo').style.display = 'none'; }
+
+// Pinned below the scrolling list so Remove is always visible, on both tabs.
+function renderPickerFoot(area) {
+  const foot = $('pickerFoot');
+  foot.innerHTML = `<div class="pfootRow"><button type="button" class="del small">🗑 Remove annotation</button><button type="button" class="primary small" data-done>Done</button></div>`;
+  foot.querySelector('[data-done]').onclick = () => hidePicker();
+  foot.querySelector('.del').onclick = () => { const b = serialize(); doc().areas = doc().areas.filter(x => x !== area); sel = noSel(); hidePicker(); commit(b); };
+}
+$('ptAnn').onclick = () => setPickerTab('ann');
+$('ptComp').onclick = () => setPickerTab('comp');
+$('ptabs').addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const t = pickerTab === 'ann' ? 'comp' : 'ann'; setPickerTab(t); $(t === 'ann' ? 'ptAnn' : 'ptComp').focus(); }
+});
+function hidePicker() { $('picker').style.display = 'none'; hideInfo(); }
+document.addEventListener('pointerdown', e => { if (!$('picker').contains(e.target) && !$('pickerInfo').contains(e.target) && e.target !== canvas) hidePicker(); });
+
+/* ---------- components ---------- */
+function setCapture(on) {
+  capturing = on;
+  $('captureBtn').setAttribute('aria-pressed', on);
+  $('banner').style.display = on ? 'block' : 'none';
+}
+$('captureBtn').onclick = () => {
+  if (mode !== 'ann') setMode('ann'); // components are captured in the Annotations view
+  if (!isPage()) return askDialog({ title: 'Open a screen first', msg: 'Components are captured from a screenshot.', input: false, ok: 'OK' });
+  setCapture(!capturing); hidePicker();
+};
+$('cancelCapture').onclick = () => setCapture(false);
+
+function placeInstance(p, c) {
+  const w = Math.min(c.w, p.w), h = Math.min(c.h, p.h);
+  const inst = { id: uid('i'), componentId: c.id, x: clamp(c.origin.x, 0, p.w - w), y: clamp(c.origin.y, 0, p.h - h), w, h };
+  p.instances.push(inst); return inst;
+}
+// Capture a region of the page as a new component. Annotations fully inside it move into the component.
+async function captureComponent(r, replaceArea) {
+  const p = doc(); if (!isPage()) return;
+  const name = await askDialog({ title: 'New component', msg: 'Name the captured area. It will be greyed out here and on every screen you add it to.', value: project.components.length ? '' : 'Header', ok: 'Create' });
+  if (!name) return;
+  const before = serialize();
+  const x = Math.floor(r.x), y = Math.floor(r.y), w = Math.ceil(r.w), h = Math.ceil(r.h);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(curImg, x, y, w, h, 0, 0, w, h);
+  const imageId = uid('img'); images[imageId] = cv.toDataURL('image/png');
+  const box = { x, y, w, h };
+  const moving = p.areas.filter(a => a !== replaceArea && contains(box, a));
+  const c = { id: uid('comp'), name, imageId, w, h, origin: { x, y },
+    areas: moving.map(a => ({ ...a, x: a.x - x, y: a.y - y })) };
+  project.components.push(c);
+  p.areas = p.areas.filter(a => a !== replaceArea && !moving.includes(a));
+  const inst = { id: uid('i'), componentId: c.id, x, y, w, h };
+  p.instances.push(inst);
+  sel = { area: null, inst: inst.id };
+  commit(before);
+}
+function areaToInstance(area, c) {
+  const before = serialize(), p = doc();
+  p.areas = p.areas.filter(a => a !== area);
+  const inst = { id: uid('i'), componentId: c.id, x: area.x, y: area.y, w: area.w, h: area.h };
+  p.instances.push(inst); sel = { area: null, inst: inst.id };
+  hidePicker(); commit(before);
+}
+function placeOnAll(cid) {
+  const before = serialize(), c = comp(cid);
+  project.pages.forEach(p => { if (!p.instances.some(i => i.componentId === cid)) placeInstance(p, c); });
+  commit(before);
+}
+function removeInstance(instId) {
+  const before = serialize(), p = doc();
+  p.instances = p.instances.filter(i => i.id !== instId);
+  if (sel.inst === instId) sel.inst = null;
+  commit(before);
+}
+
+/* ---------- rename / delete ---------- */
+async function rename(kind, id) {
+  const item = kind === 'page' ? page(id) : comp(id);
+  const name = await askDialog({ title: `Rename ${kind === 'page' ? 'screen' : 'component'}`, value: item.name, ok: 'Rename' });
+  if (!name) return;
+  const before = serialize(); item.name = name; commit(before);
+}
+async function removeDoc(kind, id) {
+  if (kind === 'page') {
+    if (!await askDialog({ title: `Delete screen “${page(id).name}”?`, msg: 'Its annotations are removed. Components stay in the project.', input: false, ok: 'Delete' })) return;
+    const before = serialize();
+    project.pages = project.pages.filter(p => p.id !== id);
+    afterRemove(before, id);
+  } else {
+    const n = usage(id).length;
+    if (!await askDialog({ title: `Delete component “${comp(id).name}”?`, msg: n ? `It will be removed from ${plural(n, 'screen')}, along with its annotations.` : '', input: false, ok: 'Delete' })) return;
+    const before = serialize();
+    project.components = project.components.filter(c => c.id !== id);
+    project.pages.forEach(p => p.instances = p.instances.filter(i => i.componentId !== id));
+    afterRemove(before, id);
+  }
+}
+// Close the deleted item's tab before redrawing, so no tab points at something that no longer exists.
+function afterRemove(before, id) {
+  const wasCurrent = current?.id === id;
+  pruneTabs();
+  commit(before);
+  if (wasCurrent) activate();
+}
+
+/* ---------- panels ---------- */
+function refresh() { render(); renderTabs(); renderNav(); renderAside(); renderDetail(); renderViewStats(); syncButtons(); }
+
+/* "Add to screens" (component open): a modal listing every screen with a checkbox, ticked where the
+   component is used. Save applies all changes as one undo step. */
+function placeMenuHtml(c) {
+  return `<button type="button" id="placeBtn" class="small" aria-haspopup="dialog">Add to screens…</button>`;
+}
+function bindPlaceMenu(c) { $('placeBtn').onclick = () => openPlaceDialog(c); } // button lives in the view bar
+function openPlaceDialog(c) {
+  const dlg = $('placeDlg'), list = $('placeList'), used = new Set(usage(c.id).map(p => p.id));
+  $('placeTitle').textContent = `Add ${c.name} to screens`;
+  list.innerHTML = project.pages.length ? project.pages.map(p => `<li><label>
+      <input type="checkbox" value="${p.id}" ${used.has(p.id) ? 'checked' : ''}>
+      <span>${esc(p.name)}</span>
+    </label></li>`).join('') : '<li class="empty">No screens yet. Add screens first.</li>';
+  const boxes = () => [...list.querySelectorAll('input')], all = $('placeAll');
+  const sync = () => {
+    const n = boxes().filter(b => b.checked).length, total = boxes().length;
+    all.checked = total > 0 && n === total; all.indeterminate = n > 0 && n < total; all.disabled = !total;
+    $('placeCount').textContent = `${n} of ${plural(total, 'screen')} selected`;
+  };
+  all.onchange = () => { boxes().forEach(b => { b.checked = all.checked; }); sync(); };
+  list.onchange = sync; sync();
+  dlg.returnValue = '';
+  dlg.showModal();
+  (list.querySelector('input:not(:checked)') || all).focus();
+  dlg.addEventListener('close', () => {
+    if (dlg.returnValue !== 'ok') return;
+    const want = new Set(boxes().filter(b => b.checked).map(b => b.value)), before = serialize();
+    project.pages.forEach(p => {
+      const has = p.instances.some(i => i.componentId === c.id);
+      if (want.has(p.id) && !has) placeInstance(p, c);
+      if (!want.has(p.id) && has) p.instances = p.instances.filter(i => i.componentId !== c.id);
+    });
+    commit(before);
+  }, { once: true });
+}
+
+// Right side of the view bar: counts for the current view of the open screen/component.
+function renderViewStats() {
+  const el = $('viewStats'), d = doc(); if (!d) return (el.innerHTML = '');
+  const n = (v, w) => `<strong>${v}</strong> ${w}`;
+  if (mode === 'ann') {
+    const used = isPage() ? [] : usage(d.id);
+    el.innerHTML = (isPage() ? '' : placeMenuHtml(d))
+      + `<span>${ICON_ANN}${n(d.areas.length, d.areas.length === 1 ? 'annotation' : 'annotations')}</span>`
+      + (isPage() ? `<span>${ICON_COMP}${n(d.instances.length, d.instances.length === 1 ? 'component' : 'components')}</span>`
+        : `<span>${n(`${used.length} of ${project.pages.length}`, project.pages.length === 1 ? 'screen' : 'screens')}</span>`);
+    if (!isPage()) bindPlaceMenu(d);
+    return;
+  }
+  const O = ORDER[mode], steps = flatOrder(d, mode).filter(f => !f.empty).length;
+  const linked = new Set(orderOf(d, mode).map(st => st.areaId).filter(Boolean));
+  const pool = mode === 'focus' ? d.areas.filter(a => typesOf(a).some(isInteractive)) : d.areas;
+  const inOrder = pool.filter(a => linked.has(a.id)).length;
+  el.innerHTML = `<span style="color:${O.color}"><i class="shape" style="border-radius:${O.shape === 'circle' ? '50%' : '2px'}"></i></span>`
+    + `<span>${n(steps, mode === 'focus' ? (steps === 1 ? 'tab stop' : 'tab stops') : (steps === 1 ? 'step' : 'steps'))}</span>`
+    + `<span>${n(`${inOrder} of ${pool.length}`, mode === 'focus' ? 'interactive annotations included' : 'annotations included')}</span>`;
+}
+
+/* ---------- details panel (right): the annotation whose label was clicked, or a component picked on the left ---------- */
+let hoverArea = null; // element whose label is hovered/focused (drawn with a ring around it)
+let detail = null, detailKey = null, detailQuiet = false; // detailQuiet: open the panel without moving focus // detail: { kind: 'area' | 'inst', id }
+function renderDetail() {
+  if (mode !== 'ann' && doc()) { detailKey = null; return renderOrderPanel(); } // the order list lives here in order modes
+  const panel = $('details'), d = doc();
+  const a = detail?.kind === 'area' && d?.areas.find(x => x.id === detail.id);
+  const inst = detail?.kind === 'inst' && isPage() && d.instances.find(i => i.id === detail.id);
+  const c = inst && comp(inst.componentId);
+  if (!a && !c) { detail = null; detailKey = null; if (!panel.hidden) { panel.hidden = true; relayout(); } return; }
+  const key = a ? `a:${a.id}:${typesOf(a).join('+')}:${d.areas.indexOf(a)}:${JSON.stringify(a.props || {})}` : `i:${inst.id}:${c.name}:${c.areas.length}`;
+  if (key === detailKey && !panel.hidden) return;
+  const fresh = key.split(':').slice(0, 2).join() !== (detailKey || '').split(':').slice(0, 2).join();
+  detailKey = key;
+  const close = `<button type="button" class="icon close" data-act="close" aria-label="Close details">✕</button>`;
+  const chips = w => w ? `<div><span class="hint">WCAG 2.2</span><div class="chips">${w.split(/[;,]\s*/).filter(Boolean).map(x => `<span class="sc">${esc(x)}</span>`).join('')}</div></div>` : '';
+  if (a) {
+    const t = typeById(a.type), n = d.areas.indexOf(a) + 1, all = typesOf(a), multi = all.length > 1;
+    panel.innerHTML = `<div class="dpHead">
+        <span class="num" style="background:${t.color}">${n}</span>
+        <div class="dpTitle"><h2 id="dpTitle">${multi ? `<span class="sr">${esc(typeLabel(a))}</span><span class="tBadges" aria-hidden="true">${all.map(id => `<span class="tBadge" style="--c:${typeById(id).color}">${esc(typeById(id).label)}</span>`).join('')}</span>` : esc(t.label)}</h2><span class="hint">${multi ? `${all.length} annotations on this element` : `${esc(groupName(t.group))} · Border: ${esc(BORDERS[t.border] || 'Solid')}`}</span></div>
+        ${close}
+      </div>
+      ${all.map((id, i) => { const ty = typeById(id); return `<section class="dType" data-t="${id}">
+        ${multi ? `<div class="dtHead"><span class="swatch" style="--c:${ty.color}" data-border="${ty.border}" aria-hidden="true"></span><h3>${esc(ty.label)}</h3>
+          <button type="button" class="icon del" data-untype="${id}" aria-label="Remove ${esc(ty.label)} from this element">✕</button></div>
+          <span class="hint">${esc(groupName(ty.group))} · Border: ${esc(BORDERS[ty.border] || 'Solid')}</span>` : ''}
+        ${ty.props?.length ? '<div class="propSlot"></div>' : ''}
+        <div class="dpInfo">
+          ${ty.description ? `<p>${esc(ty.description)}</p>` : '<p class="hint">No description yet. Add one in Settings.</p>'}
+          ${chips(ty.wcag)}
+        </div></section>`; }).join('')}
+      <div class="dpActions">
+        <button type="button" class="small" data-act="change">${multi ? 'Change annotations' : 'Change annotation'}</button>
+        <button type="button" class="small del" data-act="remove">Remove</button>
+      </div>`;
+    panel.querySelectorAll('.dType[data-t]').forEach(sec => {
+      const slot = sec.querySelector('.propSlot'), id = sec.dataset.t;
+      if (slot) slot.replaceWith(propFields(a, id, (sel, pid) => $('details').querySelector(`.dType[data-t="${id}"] .prop[data-prop="${pid}"] ${sel}`)?.focus()));
+    });
+    panel.querySelectorAll('[data-untype]').forEach(b => b.onclick = () => {
+      const before = serialize(), id = b.dataset.untype;
+      if (a.type === id) { a.type = a.extra[0]; a.extra = a.extra.slice(1); } else a.extra = a.extra.filter(x => x !== id);
+      if (!a.extra.length) delete a.extra;
+      if (a.props?.[id]) { delete a.props[id]; if (!Object.keys(a.props).length) delete a.props; }
+      commit(before);
+    });
+    panel.querySelector('[data-act=change]').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); showPicker(a, r.left - 300, r.top, true); };
+    panel.querySelector('[data-act=remove]').onclick = () => { const b = serialize(); d.areas = d.areas.filter(x => x !== a); sel = noSel(); detail = null; commit(b); };
+  } else {
+    const used = usage(c.id);
+    panel.innerHTML = `<div class="dpHead">
+        <span class="num comp" aria-hidden="true">◆</span>
+        <div class="dpTitle"><h2 id="dpTitle">${esc(c.name)}</h2><span class="hint">Component · on ${plural(used.length, 'screen')}</span></div>
+        ${close}
+      </div>
+      <div class="dpInfo">
+        <span class="hint">${plural(c.areas.length, 'annotation')}</span>
+        ${c.areas.length ? `<ol class="dpList">${c.areas.map((x, i) => { const t = typeById(x.type); return `<li><span class="num" style="background:${t.color}">${i + 1}</span><span>${esc(typeLabel(x))}</span></li>`; }).join('')}</ol>` : '<p class="hint">No annotations yet. Open the component to add some.</p>'}
+      </div>
+      <div class="dpActions">
+        <button type="button" class="small primary" data-act="open">Open ↗</button>
+        <button type="button" class="small del" data-act="remove">Remove from screen</button>
+      </div>`;
+    panel.querySelector('[data-act=open]').onclick = () => openDoc('comp', c.id);
+    panel.querySelector('[data-act=remove]').onclick = () => { detail = null; removeInstance(inst.id); };
+  }
+  panel.querySelector('[data-act=close]').onclick = closeDetail;
+  panel.classList.toggle('slide', fresh);
+  const wasHidden = panel.hidden;
+  panel.hidden = false;
+  if (wasHidden) relayout();
+  if (fresh && !detailQuiet) panel.querySelector('[data-act=close]').focus({ preventScroll: true });
+  detailQuiet = false;
+}
+// the canvas area changes width when the details panel opens or closes; refit if the tab is on Fit
+function relayout() { if (doc() && current?.zoom == null) { layoutCanvas(); render(); } }
+function closeDetail() {
+  const was = detail; detail = null; hidePicker(); refresh();
+  // focus back to what opened it: the annotation's label, or the component in the left list
+  (was?.kind === 'area' ? $('overlay').querySelector(`[data-area="${was.id}"]`) : $('onPage').querySelector(`[data-inst="${was?.id}"]`))?.focus({ preventScroll: true });
+}
+
+// Left column tabs: Pages | Components
+let navTab = 'pages';
+function setNavTab(tab, focus) {
+  navTab = tab;
+  [['pages', 'tabPages', 'panelPages'], ['comps', 'tabComps', 'panelComps']].forEach(([k, t, pnl]) => {
+    $(t).setAttribute('aria-selected', k === tab); $(t).tabIndex = k === tab ? 0 : -1; $(pnl).hidden = k !== tab;
+  });
+  if (focus) $(tab === 'pages' ? 'tabPages' : 'tabComps').focus();
+}
+$('tabPages').onclick = () => setNavTab('pages');
+$('tabComps').onclick = () => setNavTab('comps');
+document.querySelector('.navTabs').addEventListener('keydown', e => {
+  if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) { e.preventDefault(); setNavTab(navTab === 'pages' ? 'comps' : 'pages', true); }
+});
+// small count line under a page or component name: icon + "2 annotations", icon + "1 component"
+const ICON_ANN = '<svg class="ico sm" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="4 3"/><path d="M8 3v4M3 8h4"/></svg>';
+const ICON_COMP = '<span class="diamond" aria-hidden="true">◆</span>';
+const countLine = (ann, compN, extra = '') => `<span class="counts"><span>${ICON_ANN}${plural(ann, 'annotation')}</span>${compN != null ? `<span>${ICON_COMP}${plural(compN, 'component')}</span>` : ''}${extra}</span>`;
+// Collapse / expand the left sidebar (remembered per browser).
+function setNavCollapsed(collapsed) {
+  document.body.classList.toggle('nav-collapsed', collapsed);
+  const b = $('navToggle'), label = collapsed ? 'Show sidebar' : 'Hide sidebar';
+  b.setAttribute('aria-expanded', !collapsed); b.setAttribute('aria-label', label); b.title = `${label} (Ctrl/⌘ \\)`;
+  try { localStorage.setItem('dcaa-nav-collapsed', collapsed ? '1' : ''); } catch (e) { /* storage unavailable */ }
+  if (doc() && current?.zoom == null) { layoutCanvas(); render(); }
+}
+$('navToggle').onclick = () => setNavCollapsed(!document.body.classList.contains('nav-collapsed'));
+try { if (localStorage.getItem('dcaa-nav-collapsed')) setNavCollapsed(true); } catch (e) { /* storage unavailable */ }
+function renderNav() {
+  const badge = n => n > 999 ? '999+' : String(n); // keeps the tab badges short enough to fit
+  $('pageCount').textContent = badge(project.pages.length); $('compCount').textContent = badge(project.components.length);
+  $('pages').innerHTML = project.pages.length ? '' : '<li class="empty">No screens yet.</li>';
+  project.pages.forEach(p => {
+    const li = document.createElement('li'), on = isPage() && current.id === p.id;
+    li.className = on ? 'current' : '';
+    li.innerHTML = `<div class="line"><button class="open" ${on ? 'aria-current="page"' : ''}><span class="nm">${esc(p.name)}</span></button>
+      <button class="icon" data-act="rename" aria-label="Rename ${esc(p.name)}">✎</button><button class="icon del" data-act="del" aria-label="Delete ${esc(p.name)}">✕</button></div>`;
+    li.querySelector('.open').onclick = () => openDoc('page', p.id);
+    li.querySelector('[data-act=rename]').onclick = () => rename('page', p.id);
+    li.querySelector('[data-act=del]').onclick = () => removeDoc('page', p.id);
+    $('pages').appendChild(li);
+  });
+  $('comps').innerHTML = project.components.length ? '' : '<li class="empty">No components yet.</li>';
+  project.components.forEach(c => {
+    const li = document.createElement('li'), used = usage(c.id), on = current?.kind === 'comp' && current.id === c.id;
+    li.className = on ? 'current' : '';
+    li.innerHTML = `<div class="line"><button class="open" ${on ? 'aria-current="page"' : ''}><span class="nm"><span class="diamond" aria-hidden="true">◆</span> ${esc(c.name)}</span>${countLine(c.areas.length, null, `<span>on ${used.length} of ${plural(project.pages.length, 'screen')}</span>`)}</button>
+      <button class="icon" data-act="rename" aria-label="Rename ${esc(c.name)}">✎</button><button class="icon del" data-act="del" aria-label="Delete ${esc(c.name)}">✕</button></div>`;
+    li.querySelector('.open').onclick = () => openDoc('comp', c.id);
+    li.querySelector('[data-act=rename]').onclick = () => rename('comp', c.id);
+    li.querySelector('[data-act=del]').onclick = () => removeDoc('comp', c.id);
+    $('comps').appendChild(li);
+  });
+}
+
+// Left column, under the tabs: components on the open page, or the pages that use the open component.
+// (All navigation is on the left; details of the selection are on the right.)
+function renderAside() {
+  const d = doc(), el = $('onPage');
+  el.hidden = !d;
+  if (!d) return;
+  if (isPage()) {
+    el.innerHTML = `<h2>On this screen <span class="count">${d.instances.length}</span></h2>` + (d.instances.length
+      ? `<ul>${d.instances.map(inst => {
+          const c = comp(inst.componentId); if (!c) return '';
+          const on = detail?.kind === 'inst' && detail.id === inst.id;
+          return `<li class="opItem" ${on ? 'aria-current="true"' : ''}><button class="open" data-inst="${inst.id}" aria-expanded="${on}" aria-controls="details"><span class="nm"><span class="diamond" aria-hidden="true">◆</span> ${esc(c.name)}</span>${countLine(c.areas.length)}</button>
+            <button class="icon" data-open="${c.id}" aria-label="Open ${esc(c.name)} in a new tab" title="Open in a new tab">↗</button></li>`;
+        }).join('')}</ul>`
+      : '<p class="empty">No components yet. Draw an area and choose the <strong>Components</strong> tab, or capture one with <strong>+</strong> in the Components tab.</p>')
+      + `<p class="hint">Click an annotation's label on the image, such as “1. Heading”, to see its details on the right. Drag inside an annotation to add one within it. Drag its border to move it, or its corner square to resize it.</p>`;
+    el.querySelectorAll('[data-inst]').forEach(b => b.onclick = () => {
+      const id = b.dataset.inst;
+      detail = detail?.kind === 'inst' && detail.id === id ? null : { kind: 'inst', id };
+      sel = { area: null, inst: id }; hidePicker(); refresh();
+    });
+  } else {
+    const used = usage(d.id);
+    el.innerHTML = `<h2>Used on these screens <span class="count">${used.length}</span></h2>` + (used.length
+      ? `<ul>${used.map(p => `<li class="opItem"><button class="open" data-page="${p.id}">${esc(p.name)}</button></li>`).join('')}</ul>`
+      : '<p class="empty">Not on any screen yet.</p>')
+      + `<p class="hint">Edits to <strong>${esc(d.name)}</strong> apply on every screen listed. Click an annotation's label to see its details on the right.</p>`;
+    el.querySelectorAll('[data-page]').forEach(b => b.onclick = () => openDoc('page', b.dataset.page));
+  }
+  el.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDoc('comp', b.dataset.open));
+}
+
+/* ---------- settings page: annotation library (grouped; colour + border per annotation) ---------- */
+const PALETTE = ['#1f5fd1', '#7b3fe4', '#077a4d', '#0277bd', '#a35400', '#c2410c', '#00796b', '#9a3412', '#616161', '#4a3a8c'];
+const allAreas = () => [...project.pages, ...project.components].flatMap(x => x.areas);
+const typeUse = id => allAreas().filter(a => hasType(a, id)).length;
+// Bind an input to a field: live preview while typing, one undo step per change.
+function bindField(el, get, set) {
+  let before;
+  el.onfocus = () => { before = serialize(); };
+  el.oninput = () => { set(el.value); render(); };
+  el.onchange = () => { el.value = get(); if (before && before !== serialize()) { pushUndo(before); scheduleSave(); } before = serialize(); syncButtons(); renderDefault(); };
+}
+let setGroup = null; // id of the group whose annotations are shown in the right column
+function renderGroupNav() {
+  const list = $('groupList'); list.innerHTML = '';
+  groups().forEach(g => {
+    const items = types().filter(t => t.group === g.id), on = g.id === setGroup, b = document.createElement('button');
+    b.type = 'button'; b.className = 'grp'; b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; b.dataset.group = g.id;
+    b.innerHTML = `<span class="grpName">${esc(g.name)}</span><span class="dots" aria-hidden="true">${items.slice(0, 4).map(t => `<i style="background:${t.color}"></i>`).join('')}</span><span class="count">${items.length}</span>`;
+    b.onclick = () => { setGroup = g.id; renderSettings(); };
+    list.appendChild(b);
+  });
+}
+// Up/Down/Home/End move between groups (vertical tab list)
+$('groupList').addEventListener('keydown', e => {
+  const ids = groups().map(g => g.id), i = ids.indexOf(setGroup);
+  const next = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: ids.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  setGroup = ids[(next + ids.length) % ids.length]; renderSettings();
+  $('groupList').querySelector('[aria-selected=true]')?.focus();
+});
+function renderSettings() {
+  if (!groups().some(g => g.id === setGroup)) setGroup = groups()[0]?.id ?? null;
+  renderGroupNav();
+  const wrap = $('libGroups'); wrap.innerHTML = '';
+  wrap.setAttribute('aria-label', groupName(setGroup));
+  groups().filter(g => g.id === setGroup).forEach(g => {
+    const items = types().filter(t => t.group === g.id), sec = document.createElement('section');
+    sec.className = 'libGroup';
+    sec.innerHTML = `<div class="libHead">
+        <input class="groupName" type="text" value="${esc(g.name)}" aria-label="Group name">
+        <span class="hint">${plural(items.length, 'annotation')}</span>
+      </div><ul class="libItems"></ul>${items.length ? '' : '<p class="empty libEmpty">No annotations in this group yet.</p>'}
+      <div class="libAdd"><button type="button" class="small" data-act="add">+ Add annotation</button>${items.length ? '' : `<button type="button" class="small del" data-act="delgroup">Delete group</button>`}</div>`; // last element of the group; Delete only for empty groups
+    const gname = sec.querySelector('.groupName');
+    bindField(gname, () => g.name, v => { if (v.trim()) { g.name = v.trim(); renderGroupNav(); } });
+    sec.querySelector('[data-act=add]').onclick = () => {
+      const b = serialize(), t = { id: uid('t'), group: g.id, label: 'New annotation', color: PALETTE[types().length % PALETTE.length], border: 'solid', description: '', wcag: '' };
+      project.types.push(t); commit(b); renderSettings();
+      $('libGroups').querySelector(`[data-type="${t.id}"] .tName`)?.select();
+    };
+    sec.querySelector('[data-act=delgroup]')?.addEventListener('click', () => {
+      const b = serialize(), i = groups().indexOf(g);
+      project.groups = groups().filter(x => x !== g);
+      setGroup = groups()[Math.min(i, groups().length - 1)]?.id ?? null; // select the neighbouring group (undo restores it)
+      commit(b); renderSettings();
+      $('groupList').querySelector('[aria-selected=true]')?.focus();
+    });
+    const ul = sec.querySelector('.libItems');
+    items.forEach(t => {
+      const li = document.createElement('li'), n = typeUse(t.id);
+      li.dataset.type = t.id;
+      li.innerHTML = `<div class="libRow">
+          <input type="color" value="${t.color}" aria-label="Colour for ${esc(t.label)}">
+          <input class="tName" type="text" value="${esc(t.label)}" aria-label="Annotation name">
+          <select aria-label="Border style for ${esc(t.label)}">${Object.entries(BORDERS).map(([k, v]) => `<option value="${k}" ${k === t.border ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <span class="swatch big" style="--c:${t.color}" data-border="${t.border}" aria-hidden="true"></span>
+          <span class="hint used">${n} used</span>
+          <button type="button" class="icon del" aria-label="Delete ${esc(t.label)}">✕</button>
+        </div>
+        <div class="libRow2">
+          <label class="desc">Description <textarea rows="2" aria-label="Description of ${esc(t.label)}" placeholder="Role, accessible name, states, keyboard"></textarea></label>
+          <label class="wcag">WCAG <textarea rows="2" aria-label="WCAG criteria for ${esc(t.label)}" placeholder="e.g. 1.3.1; 2.4.6"></textarea></label>
+        </div>
+        <div class="propsEd">
+          <div class="peHead"><span>Properties</span><button type="button" class="small" data-addprop>+ Add property</button></div>
+          ${(t.props || []).length ? `<ul class="peList">${t.props.map((pp, k) => `<li data-k="${k}">
+            <input class="pe-name" type="text" value="${esc(pp.name)}" aria-label="Property name">
+            <select class="pe-kind" aria-label="Kind of ${esc(pp.name)}"><option value="choice" ${pp.kind === 'choice' ? 'selected' : ''}>Choice</option><option value="text" ${pp.kind === 'text' ? 'selected' : ''}>Text</option></select>
+            <input class="pe-opts" type="text" value="${esc((pp.options || []).map(o => o.label).join(', '))}" placeholder="Options, comma separated" aria-label="Options for ${esc(pp.name)}" ${pp.kind === 'text' ? 'hidden' : ''}>
+            <label class="pe-on"><input type="checkbox" ${pp.onLabel ? 'checked' : ''} ${pp.kind === 'text' ? 'disabled' : ''}> Show on label</label>
+            <button type="button" class="icon del" data-delprop aria-label="Delete property ${esc(pp.name)}">✕</button></li>`).join('')}</ul>` : '<p class="hint">No properties.</p>'}
+        </div>`;
+      const [color, name] = li.querySelectorAll('.libRow input'), border = li.querySelector('select'), sw = li.querySelector('.swatch');
+      const desc = li.querySelector('.desc textarea'), wcag = li.querySelector('.wcag textarea');
+      desc.value = t.description || ''; wcag.value = t.wcag || '';
+      bindField(color, () => t.color, v => { t.color = v; sw.style.setProperty('--c', v); });
+      bindField(name, () => t.label, v => { if (v.trim()) t.label = v.trim(); });
+      bindField(desc, () => t.description, v => { t.description = v; });
+      bindField(wcag, () => t.wcag, v => { t.wcag = v.trim(); });
+      border.onchange = () => { const b = serialize(); t.border = border.value; sw.dataset.border = t.border; commit(b); };
+      // properties of this annotation type (name, kind, options, show on label)
+      li.querySelector('[data-addprop]').onclick = () => {
+        const b = serialize(), np = { id: uid('p'), name: 'New property', kind: 'choice', options: opt('Option 1', 'Option 2'), onLabel: false };
+        (t.props ||= []).push(np); commit(b); renderSettings();
+        $('libGroups').querySelector(`[data-type="${t.id}"] .peList li:last-child .pe-name`)?.select();
+      };
+      li.querySelectorAll('.peList li').forEach(row => {
+        const pp = t.props[+row.dataset.k];
+        bindField(row.querySelector('.pe-name'), () => pp.name, v => { if (v.trim()) pp.name = v.trim(); });
+        row.querySelector('.pe-kind').onchange = e => { const b = serialize(); pp.kind = e.target.value; if (pp.kind === 'choice' && !pp.options?.length) pp.options = opt('Option 1', 'Option 2'); if (pp.kind === 'text') pp.onLabel = false; commit(b); renderSettings(); };
+        row.querySelector('.pe-opts').onchange = e => {
+          const b = serialize(), labels = e.target.value.split(',').map(x => x.trim()).filter(Boolean);
+          pp.options = labels.map(l => (pp.options || []).find(o => o.label === l || o.value === l) || { value: l, label: l });
+          commit(b); renderSettings();
+        };
+        row.querySelector('.pe-on input').onchange = e => { const b = serialize(); pp.onLabel = e.target.checked; commit(b); };
+        row.querySelector('[data-delprop]').onclick = () => { const b = serialize(); t.props = t.props.filter(x => x !== pp); commit(b); renderSettings(); };
+      });
+      li.querySelector('.del').onclick = async () => {
+        const rest = types().filter(x => x !== t);
+        if (!rest.length) return;
+        const to = rest.find(x => x.group === t.group) || rest[0];
+        if (n && !await askDialog({ title: `Delete “${t.label}”?`, msg: `${plural(n, 'annotation')} will change to “${to.label}”.`, input: false, ok: 'Delete' })) return;
+        const b = serialize();
+        allAreas().forEach(a => {
+          if (a.extra) a.extra = a.extra.filter(x => x !== t.id);
+          if (a.type === t.id) { if (a.extra?.length) { a.type = a.extra[0]; a.extra = a.extra.slice(1); } else a.type = to.id; }
+          if (a.extra) { a.extra = a.extra.filter(x => x !== a.type); if (!a.extra.length) delete a.extra; }
+        });
+        project.types = rest;
+        if (project.defaultType === t.id) project.defaultType = null;
+        commit(b); renderSettings();
+      };
+      ul.appendChild(li);
+    });
+    wrap.appendChild(sec);
+  });
+  renderDefault();
+}
+function renderDefault() {
+  const s = $('defaultType');
+  s.innerHTML = `<option value="">Ask me (show the pop-up)</option><option value="__last__">Use the last annotation I picked</option>` + groups().map(g =>
+    `<optgroup label="${esc(g.name)}">${types().filter(t => t.group === g.id).map(t => `<option value="${t.id}">Use “${esc(t.label)}” automatically</option>`).join('')}</optgroup>`).join('');
+  s.value = project.defaultType === '__last__' || types().some(t => t.id === project.defaultType) ? project.defaultType : '';
+}
+$('defaultType').onchange = e => { const b = serialize(); project.defaultType = e.target.value || null; commit(b); };
+$('addGroup').onclick = () => {
+  const b = serialize(), g = { id: uid('g'), name: 'New group' };
+  project.groups.push(g); setGroup = g.id; commit(b); renderSettings();
+  $('libGroups').querySelector('.groupName')?.select();
+};
+$('resetLib').onclick = async () => {
+  if (!await askDialog({ title: 'Reset annotations to default?', msg: 'Names, descriptions, colours and border styles go back to the defaults. Annotations you added that are in use are kept under “Other”.', input: false, ok: 'Reset' })) return;
+  const b = serialize(), defaults = new Set(DEFAULT_TYPES.map(t => t.id));
+  const keep = types().filter(t => !defaults.has(t.id) && typeUse(t.id)).map(t => ({ ...t, group: 'other' }));
+  project.groups = structuredClone(DEFAULT_GROUPS); project.types = structuredClone(DEFAULT_TYPES);
+  if (keep.length) { project.groups.push({ id: 'other', name: 'Other' }); project.types.push(...keep); }
+  commit(b); renderSettings();
+};
+$('settingsBtn').onclick = () => { hidePicker(); renderSettings(); $('settings').showModal(); };
+
+/* ---------- history, persistence, toolbar ---------- */
+function pushUndo(before) { undoStack.push(before); if (undoStack.length > 100) undoStack.shift(); }
+function commit(before) {
+  if (before !== serialize()) { pushUndo(before); scheduleSave(); }
+  refresh();
+}
+function undo() {
+  if (!undoStack.length) return;
+  project = JSON.parse(undoStack.pop()); scheduleSave(); hidePicker();
+  const keep = current; pruneTabs();
+  if (current === keep) { sel = noSel(); refresh(); } else activate();
+}
+$('undo').onclick = undo;
+
+/* ---------- floating toolbar: Export menu ---------- */
+const menuItems = () => [...$('exportMenu').querySelectorAll('[role=menuitem]:not(:disabled)')];
+function setMenu(open, focusFirst) {
+  $('exportMenu').hidden = !open;
+  $('exportBtn').setAttribute('aria-expanded', open);
+  if (open) { hidePicker(); if (focusFirst) menuItems()[0]?.focus(); }
+}
+$('exportBtn').onclick = e => setMenu($('exportMenu').hidden, e.detail === 0); // keyboard opens with focus on the first item
+// choosing an item closes the menu first, then runs its action
+$('exportMenu').addEventListener('click', e => { if (e.target.closest('[role=menuitem]')) setMenu(false); }, true);
+$('exportMenu').addEventListener('keydown', e => {
+  const items = menuItems(), i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+  else if (e.key === 'Home') { e.preventDefault(); items[0].focus(); }
+  else if (e.key === 'End') { e.preventDefault(); items[items.length - 1].focus(); }
+  else if (e.key === 'Escape' || e.key === 'Tab') { setMenu(false); if (e.key === 'Escape') $('exportBtn').focus(); }
+});
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.tbwrap')) setMenu(false); });
+$('openProjectBtn').onclick = () => $('openProject').click();
+function syncButtons() {
+  $('undo').disabled = !undoStack.length;
+  $('exportPng').disabled = $('exportJson').disabled = !doc();
+  $('exportReport').disabled = !project.pages.length;
+  $('exportBtn').disabled = !project.pages.length;
+  $('saveProject').disabled = !project.pages.length && !project.components.length; // nothing to save yet
+}
+
+// Autosave to this browser (IndexedDB) so work survives a reload.
+const DB_NAME = 'image-annotator', STORE = 'kv';
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+function bundle() {
+  const used = new Set([...project.pages, ...project.components].map(x => x.imageId).concat(project.report?.logoId || []));
+  return { version: 2, project, images: Object.fromEntries(Object.entries(images).filter(([k]) => used.has(k))) };
+}
+let saveTimer;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { const db = await idb(); db.transaction(STORE, 'readwrite').objectStore(STORE).put(bundle(), 'project'); } catch (e) { /* storage unavailable: work still lives in this tab */ }
+  }, 400);
+}
+async function loadSaved() {
+  try {
+    const db = await idb();
+    return await new Promise(res => { const r = db.transaction(STORE).objectStore(STORE).get('project'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+  } catch (e) { return null; }
+}
+function loadBundle(b) {
+  project = b.project; images = b.images || {};
+  migrateLibrary(project);
+  migrateProps(project);
+  if (project.defaultType === undefined) project.defaultType = null;
+  // older projects: instances had no size of their own
+  project.pages.forEach(p => p.instances.forEach(i => { const c = comp(i.componentId); if (c && i.w == null) { i.w = c.w; i.h = c.h; } }));
+  Object.keys(imgCache).forEach(k => delete imgCache[k]);
+  undoStack = []; tabs = []; current = null;
+  openDoc('page', project.pages[0]?.id);
+}
+
+function download(href, name) { const a = document.createElement('a'); a.href = href; a.download = name; a.click(); }
+const fileName = s => s.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '') || 'annotations';
+const rect = a => ({ x: Math.round(a.x), y: Math.round(a.y), width: Math.round(a.w), height: Math.round(a.h) });
+const annJson = (a, i) => { const t = typeById(a.type); return { number: i + 1, type: a.type, label: typeLabel(a), group: groupName(t.group), wcag: t.wcag,
+  types: typesOf(a).map(id => { const x = typeById(id); return { type: id, label: x.label, group: groupName(x.group), wcag: x.wcag,
+    properties: Object.fromEntries((x.props || []).map(p => [p.name, propVal(a, id, p.id) ? (p.kind === 'choice' ? optionLabel(p, propVal(a, id, p.id)) : propVal(a, id, p.id)) : null])) }; }), note: a.note, ...rect(a) }; };
+$('exportPng').onclick = () => {
+  const d = doc(), keep = sel; sel = noSel();
+  // render once at 1 image px per canvas px (labels sized for 100%), then restore the on-screen view
+  const padX = isPage() ? 0 : Math.max(COMP_MARGIN, (COMP_MIN_WIDTH - d.w) / 2), padY = isPage() ? 0 : COMP_MARGIN;
+  view = { zoom: 1, padX, padY, k: 1, forceScale: 1 };
+  canvas.width = d.w + 2 * padX; canvas.height = d.h + 2 * padY;
+  render();
+  download(canvas.toDataURL('image/png'), `${fileName(d.name)}.png`);
+  sel = keep; layoutCanvas(); render();
+};
+$('exportJson').onclick = () => {
+  const d = doc();
+  const data = { [isPage() ? 'screen' : 'component']: d.name, image: { width: d.w, height: d.h }, annotations: d.areas.map(annJson) };
+  if (isPage()) data.components = d.instances.map(inst => {
+    const c = comp(inst.componentId), sx = inst.w / c.w, sy = inst.h / c.h;
+    return { component: c.name, ...rect(inst),
+      annotations: c.areas.map((a, i) => annJson({ ...a, x: inst.x + a.x * sx, y: inst.y + a.y * sy, w: a.w * sx, h: a.h * sy }, i)) };
+  });
+  data.readingOrder = orderJson(d, 'reading'); data.focusOrder = orderJson(d, 'focus');
+  download(URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })), `${fileName(d.name)}.json`);
+};
+$('saveProject').onclick = () => download(URL.createObjectURL(new Blob([JSON.stringify(bundle())], { type: 'application/json' })), 'annotation-project.json');
+$('openProject').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const b = JSON.parse(await f.text());
+    if (!b.project?.pages) throw new Error();
+    if (project.pages.length && !await askDialog({ title: 'Replace current project?', msg: 'Save it first if you want to keep it.', input: false, ok: 'Open' })) return;
+    loadBundle(b); scheduleSave();
+  } catch { askDialog({ title: 'Couldn’t open that file', msg: 'Choose a project file saved from this tool.', input: false, ok: 'OK' }); }
+});
+
+/* ---------- customer report ---------- */
+const report = () => (project.report ||= { title: 'Accessibility annotations', customer: '', by: '', color: '#2557d6', summary: '', logoId: null });
+function openReportDialog() {
+  const r = report();
+  $('repName').value = r.title; $('repFor').value = r.customer; $('repBy').value = r.by;
+  $('repColor').value = r.color; $('repSummary').value = r.summary;
+  showLogo();
+  $('reportDlg').returnValue = ''; // so Esc after an earlier download doesn't download again
+  $('reportDlg').showModal();
+}
+function showLogo() {
+  const id = report().logoId, img = $('logoPreview');
+  img.hidden = $('logoRemove').hidden = !id;
+  if (id) img.src = images[id];
+}
+[['repName', 'title'], ['repFor', 'customer'], ['repBy', 'by'], ['repColor', 'color'], ['repSummary', 'summary']].forEach(([el, key]) => {
+  $(el).addEventListener('input', e => { report()[key] = e.target.value; scheduleSave(); });
+});
+$('logoFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const id = uid('img'); images[id] = await readFile(f);
+  report().logoId = id; scheduleSave(); showLogo();
+});
+$('logoRemove').onclick = () => { report().logoId = null; scheduleSave(); showLogo(); };
+$('repAuto').onclick = () => {
+  const areas = [...project.pages, ...project.components].flatMap(d => d.areas);
+  const byType = types().map(t => [t.label, areas.filter(a => hasType(a, t.id)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
+  const text = `We reviewed ${plural(project.pages.length, 'screen')} and recorded ${plural(areas.length, 'annotation')}` +
+    (project.components.length ? `, including ${plural(project.components.length, 'shared component')} (${project.components.map(c => c.name).join(', ')}) ${project.components.length === 1 ? 'that appears across screens and is' : 'that appear across screens and are'} annotated once.` : '.') +
+    (byType.length ? `\n\nMost common: ${byType.slice(0, 3).map(([l, n]) => `${l} (${n})`).join(', ')}.` : '');
+  $('repSummary').value = report().summary = text; scheduleSave();
+};
+$('exportReport').onclick = () => { hidePicker(); openReportDialog(); };
+$('reportDlg').addEventListener('close', () => { if ($('reportDlg').returnValue === 'ok') downloadReport(); });
+
+function downloadReport() {
+  const r = report();
+  const pick = a => ({ x: a.x, y: a.y, w: a.w, h: a.h, type: a.type, ...(a.extra?.length ? { extra: a.extra } : {}), ...(a.props ? { props: a.props } : {}), note: a.note || '' });
+  const data = {
+    meta: { title: r.title || 'Annotations report', customer: r.customer, by: r.by, summary: r.summary,
+      date: new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) },
+    logo: r.logoId ? images[r.logoId] : null,
+    types: types().map(t => ({ ...t, groupName: groupName(t.group) })),
+    pages: project.pages.map(p => ({ id: p.id, name: p.name, w: p.w, h: p.h, img: images[p.imageId], areas: p.areas.map(pick),
+      orders: { reading: orderJson(p, 'reading'), focus: orderJson(p, 'focus') },
+      instances: p.instances.map(i => ({ componentId: i.componentId, x: i.x, y: i.y, w: i.w, h: i.h })) })),
+    components: project.components.map(c => ({ id: c.id, name: c.name, w: c.w, h: c.h, img: images[c.imageId], areas: c.areas.map(pick),
+      orders: { reading: orderJson(c, 'reading'), focus: orderJson(c, 'focus') } })),
+  };
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>${esc(data.meta.title)}</title>
+<style>:root{--brand:${/^#[0-9a-f]{6}$/i.test(r.color) ? r.color : '#2557d6'}}${REPORT_CSS}</style></head>
+<body>
+<header class="top">
+  <div class="inner">
+    ${data.logo ? '<img class="logo" id="logo" alt="Logo">' : ''}
+    <div><h1 id="title"></h1><p class="meta" id="meta"></p></div>
+  </div>
+  <div class="rtabs" role="tablist" aria-label="Report">
+    <button role="tab" id="tSum" aria-controls="pSum" aria-selected="true">Summary</button>
+    <button role="tab" id="tDet" aria-controls="pDet" aria-selected="false" tabindex="-1">Annotation details</button>
+  </div>
+</header>
+
+<main id="pSum" role="tabpanel" aria-labelledby="tSum">
+  <section aria-labelledby="sumH"><h2 id="sumH">Summary</h2>
+    <div id="sumText" class="prose"></div>
+    <div class="tiles" id="tiles"></div>
+    <h3>Annotations by type</h3><ul class="cards" id="bars"></ul>
+    <h3>Screens</h3><ul class="cards" id="pageRows"></ul>
+    <h3>Components</h3><ul class="cards" id="compRows"></ul>
+  </section>
+  <footer>${esc(data.meta.title)}${data.meta.customer ? ' · ' + esc(data.meta.customer) : ''} · ${esc(data.meta.date)}</footer>
+</main>
+
+<div id="pDet" role="tabpanel" aria-labelledby="tDet" class="app" hidden>
+  <nav class="side" aria-label="Screens and components">
+    <section id="onScreen" class="onScreen"></section>
+  </nav>
+  <div class="center">
+    <div class="vhead">
+      <div class="vleft">
+        <button id="backBtn" class="back" hidden></button>
+        <h2 id="vTitle" class="vtitle"></h2>
+      </div>
+      <div class="mtabs" role="group" aria-label="What to show">
+        <button data-m="ann" aria-pressed="true">Annotations</button>
+        <button data-m="reading" aria-pressed="false"><i class="mk circle" aria-hidden="true"></i>Reading order</button>
+        <button data-m="focus" aria-pressed="false"><i class="mk square" aria-hidden="true"></i>Focus order</button>
+      </div>
+    </div>
+    <div class="stage" id="stage"><div class="shot"><img id="shotImg" alt="" draggable="false"><div id="marks"></div></div></div>
+    <div class="zbar" role="toolbar" aria-label="Zoom">
+      <button id="zOut" aria-label="Zoom out" title="Zoom out (Ctrl/⌘ −)">−</button>
+      <button id="zPct" aria-label="Reset zoom to 100%" title="Reset to 100%">100%</button>
+      <button id="zIn" aria-label="Zoom in" title="Zoom in (Ctrl/⌘ +)">+</button>
+      <button id="zFit" title="Fit to screen (Ctrl/⌘ 0)">Fit</button>
+    </div>
+  </div>
+  <aside id="det" aria-labelledby="detH" hidden></aside>
+</div>
+<script>window.REPORT_DATA=${json};<\/script>
+<script>${planLabels.toString()}<\/script>
+<script>(${reportRuntime.toString()})();<\/script>
+</body></html>`;
+  download(URL.createObjectURL(new Blob([html], { type: 'text/html' })), `${fileName(data.meta.title)}.html`);
+}
+
+const REPORT_CSS = `
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{color-scheme:light}
+body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2330;background:#f4f5f8}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.top{background:#fff;border-top:6px solid var(--brand);border-bottom:1px solid #e1e4ea;position:sticky;top:0;z-index:10}
+.top .inner{max-width:1280px;margin:0 auto;padding:16px 24px 8px;display:flex;gap:20px;align-items:center}
+.logo{max-height:48px;max-width:200px;object-fit:contain}
+h1{margin:0;font-size:24px;line-height:1.2}
+.meta{margin:4px 0 0;color:#5b6475;font-size:14px}
+/* tabs: text with an underline on the selected one (same pattern as the app) */
+.rtabs,.ntabs,.mtabs{display:flex;gap:4px}
+.rtabs{max-width:1280px;margin:0 auto;padding:0 16px}
+.rtabs button,.ntabs button,.mtabs button{border:0;background:transparent;min-height:44px;padding:8px 12px;cursor:pointer;color:#5b6475;border-radius:8px 8px 0 0;display:inline-flex;align-items:center;gap:8px}
+.rtabs button:hover,.ntabs button:hover,.mtabs button:hover{color:#1d2330}
+.rtabs [aria-selected=true],.ntabs [aria-selected=true],.mtabs [aria-pressed=true]{color:#1d2330;font-weight:600;box-shadow:inset 0 -3px 0 var(--brand)}
+.mk{width:12px;height:12px;border:2px solid}.mk.circle{border-radius:50%;color:#1d4ed8}.mk.square{border-radius:2px;color:#b42318}
+/* summary */
+main{max-width:1280px;margin:0 auto;padding:24px}
+h2{font-size:20px;margin:0 0 14px}
+#pSum h2{padding-bottom:8px;border-bottom:2px solid var(--brand);display:inline-block}
+h3{font-size:16px;font-weight:600;color:#1d2330;margin:28px 0 8px}
+section{background:#fff;border:1px solid #e1e4ea;border-radius:12px;padding:24px;margin-bottom:24px}
+.prose p{margin:0 0 12px;max-width:75ch}
+.tiles{display:flex;gap:16px;flex-wrap:wrap;margin:20px 0}
+.tile{flex:1 1 160px;border:1px solid #e1e4ea;border-radius:10px;padding:16px 20px}
+.tile b{display:block;font-size:30px;line-height:1.1;color:var(--brand)}
+.tile span{color:#5b6475;font-size:14px}
+.cols{display:flex;gap:32px;flex-wrap:wrap}.cols>div{flex:1 1 320px;min-width:0}
+/* summary cards: label and number stay together (like the top tiles); the grid wraps to fill the width */
+.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.card{border:1px solid #e1e4ea;border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.card b{font-size:24px;line-height:1.1;color:#1d2330}
+.card .cl{display:flex;align-items:center;gap:8px;color:#5b6475;font-size:14px}
+.card .link{text-align:left;font-weight:600;overflow-wrap:anywhere}
+.tbl .num-col{text-align:right;width:100px;font-variant-numeric:tabular-nums}
+td.num-col{font-weight:600}
+.tbl{margin-bottom:8px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th,.tbl td{text-align:left;padding:10px 8px;border-bottom:1px solid #eef0f4;vertical-align:top}
+.link{background:none;border:0;padding:0;color:var(--brand);text-decoration:underline;cursor:pointer}
+footer{color:#5b6475;font-size:14px;text-align:center;padding:8px 0 24px}
+/* annotation details: app-like layout */
+.app{display:grid;grid-template-columns:260px minmax(0,1fr) auto;height:calc(100vh - var(--topH,150px))}
+.side{background:#fff;border-right:1px solid #e1e4ea;overflow:auto}
+.ntabs{border-bottom:1px solid #e1e4ea;padding:0 8px}
+.ntabs button{flex:1}
+.count{font-size:14px;font-weight:400;color:#5b6475;background:#eef0f4;border-radius:999px;padding:0 8px}
+.tree{list-style:none;margin:0;padding:8px;display:flex;flex-direction:column;gap:2px}
+.tree button{width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+.tree button:hover{background:#f1f3f7}
+.tree button[aria-current]{background:color-mix(in srgb,var(--brand) 12%,#fff);font-weight:600}
+.dia{color:#7b3fe4}
+.onScreen{border:0;border-radius:0;margin:0;padding:8px 16px 16px}
+.onScreen h3{margin:0 0 8px}
+.onScreen ul{list-style:none;margin:0;padding:0}
+.onScreen button{width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.onScreen button:hover{background:#f7f3ff}
+.hint{color:#5b6475;font-size:14px}
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+.vhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 16px;background:#fff;border-bottom:1px solid #e1e4ea}
+.vleft{display:flex;align-items:center;gap:12px;min-width:0}
+.vtitle{margin:0;font-size:18px;padding:10px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vtitle .crumb{font-weight:400;color:#5b6475}
+.vtitle .sep{color:#9aa3b2;font-weight:400}
+.back{border:1px solid #d9dde5;background:#fff;border-radius:8px;min-height:36px;padding:4px 12px;cursor:pointer;font-size:14px;white-space:nowrap}
+.back:hover{border-color:var(--brand);color:var(--brand)}
+.mtabs{align-self:flex-end}
+.onScreen h4{margin:16px 0 4px;font-size:14px;font-weight:600;color:#1d2330;display:flex;align-items:center;gap:8px}
+.onScreen h4:first-child{margin-top:8px}
+.tlist{list-style:none;margin:0;padding:0}
+.tlist label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer}
+.tlist label:hover{background:#f1f3f7}
+.tlist input{width:16px;height:16px;accent-color:var(--brand);flex:none;margin:0}
+.tlist .tl{flex:1;min-width:0}
+.tlist li.all{border-bottom:1px solid #eef0f4;margin-bottom:2px}
+.tlist li.all .tl{font-weight:600}
+.tlist input:not(:checked)~.tl{color:#5b6475}
+.tlist input:not(:checked)~.sw{opacity:.4}
+.sw{width:14px;height:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);border-radius:2px;flex:none}
+.stage{flex:1;overflow:auto;padding:24px 24px 80px;background:#e9ecf1;min-height:0;display:flex;align-items:flex-start;cursor:grab}
+.stage.panning{cursor:grabbing;user-select:none}
+.shot{position:relative;flex:none;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+.shot img{display:block;max-width:none}
+.zbar{position:absolute;right:16px;bottom:16px;z-index:3;display:flex;align-items:center;gap:2px;padding:4px;background:#fff;border:1px solid #d9dde5;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.15)}
+.zbar button{border:1px solid transparent;background:transparent;min-width:36px;min-height:36px;border-radius:8px;cursor:pointer;font-size:14px}
+.zbar button:hover{border-color:#d9dde5}
+#zOut,#zIn{font-size:20px}
+#zPct{min-width:64px;font-variant-numeric:tabular-nums}
+#zFit{border-color:#d9dde5;margin-left:4px}
+#zFit[aria-pressed=true]{background:color-mix(in srgb,var(--brand) 12%,#fff);border-color:var(--brand)}
+#marks{position:absolute;inset:0}
+.box{position:absolute;background:color-mix(in srgb,var(--c) 13%,transparent);pointer-events:none}
+.box.hl{background:color-mix(in srgb,var(--c) 28%,transparent);box-shadow:0 0 0 3px #fff,0 0 0 5px var(--c);z-index:1}
+.box.on{background:color-mix(in srgb,var(--c) 28%,transparent);box-shadow:0 0 0 3px #fff,0 0 0 5px var(--c)}
+.box.tab::before{content:"";position:absolute;left:-4px;top:-4px;width:14px;height:14px;border-left:5px solid var(--c);border-top:5px solid var(--c)}
+.lbl{position:absolute;border:1px solid #fff;background:var(--c);color:#fff;font-weight:600;font-size:14px;line-height:20px;padding:0 6px;white-space:nowrap;cursor:pointer;border-radius:2px}
+.lbl:hover{filter:brightness(1.1)}
+.leaders{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.leaders line{stroke:#1d2330;stroke-width:1;stroke-linecap:round;paint-order:stroke;filter:drop-shadow(0 0 1px #fff)}
+.lbl.multi{background:transparent;border:0;padding:0;display:flex;flex-wrap:wrap;gap:2px;line-height:20px}
+.lbl.multi span{background:var(--c);border:1px solid #fff;padding:0 6px;border-radius:2px}
+.tBadges{display:flex;flex-wrap:wrap;gap:4px}
+.tBadge{background:var(--c);color:#fff;font-size:14px;font-weight:600;padding:2px 8px;border-radius:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lbl[aria-expanded=true]{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--brand)}
+.inst{position:absolute;background:repeating-linear-gradient(-45deg,rgba(90,96,110,.22) 0 1px,transparent 1px 7px),rgba(120,124,134,.10);border:2px dashed #7b3fe4;pointer-events:none}
+.opath{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ob{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 4px;background:var(--c);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ob.reading{border-radius:13px}.ob.focus{border-radius:4px}.ob.fromc{border-color:#7b3fe4}
+/* right: details */
+#det{width:340px;background:#fff;border-left:1px solid #e1e4ea;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.dHead{display:flex;gap:12px;align-items:flex-start}
+.dHead h2{margin:0;font-size:18px;display:flex;align-items:center;gap:8px}
+.dHead .x{margin-left:auto;border:0;background:transparent;font-size:18px;cursor:pointer;color:#5b6475;min-width:32px;min-height:32px;border-radius:6px}
+.dHead .x:hover{background:#f1f3f7;color:#1d2330}
+.num{flex:none;min-width:28px;height:28px;padding:0 4px;border-radius:50%;color:#fff;font-size:14px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.num.square,.num.focus{border-radius:4px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.sc{border:1px solid #d9dde5;background:#f6f7f9;border-radius:999px;padding:0 8px;font-size:14px;font-variant-numeric:tabular-nums}
+.note{background:#f6f7f9;border-radius:8px;padding:8px 12px}
+.dType{display:flex;flex-direction:column;gap:2px}
+.dType+.dType{border-top:1px solid #eef0f4;padding-top:12px}
+.dtH{display:flex;align-items:center;gap:8px;margin:0;font-size:16px;color:#1d2330;font-weight:600}
+.pList{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0 0;font-size:14px}
+.pList dt{color:#5b6475}.pList dd{margin:0;font-weight:600;color:#1d2330}
+.olist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.olist li{display:flex;gap:12px;align-items:center;padding:8px 4px;border-bottom:1px solid #eef0f4}
+@media (max-width:1000px){.app{grid-template-columns:1fr;height:auto}.side{border-right:0;border-bottom:1px solid #e1e4ea}#det{width:auto;border-left:0;border-top:1px solid #e1e4ea}.stage{min-height:60vh}}
+@media (max-width:600px){main{padding:16px}section{padding:16px}.top .inner{padding:12px 16px 4px}}
+@media print{.top{position:static}.rtabs{display:none}#pDet{display:none!important}body{background:#fff}section{border:0;padding:0}}
+`;
+
+// Runs inside the exported report (serialised with toString), so it must not use anything from this file.
+function reportRuntime() {
+  const D = window.REPORT_DATA;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const typeOf = id => D.types.find(t => t.id === id) || { id, label: 'Annotation', color: '#616161', border: 'solid', wcag: '', groupName: '', description: '' };
+  const tys = a => [a.type].concat(a.extra || []);                       // all annotation types on one element
+  const pv = (a, tid, pid) => a.props && a.props[tid] && a.props[tid][pid];
+  const optL = (p, v) => ((p.options || []).find(o => o.value === v) || {}).label || v;
+  const badge = (a, tid) => [typeOf(tid).label].concat((typeOf(tid).props || []).filter(p => p.onLabel && p.kind === 'choice' && pv(a, tid, p.id)).map(p => optL(p, pv(a, tid, p.id)))).join(' ');
+  const tLabel = a => tys(a).map(id => badge(a, id)).join(' + ');
+  const comp = id => D.components.find(c => c.id === id);
+  const pl = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const docOf = t => t && (t.kind === 'page' ? D.pages.find(p => p.id === t.id) : comp(t.id));
+  const CSS_BORDER = { solid: '2px solid', thin: '1px solid', double: '4px double', thick_inner: '5px double', dashed: '2px dashed', longdash: '2px dashed', dashdot: '2px dashed', dotted: '3px dotted', dashdotdot: '3px dotted', corner_tab: '2px solid' };
+  const BORDER_NAME = { solid: 'Solid', thin: 'Thin', double: 'Double', thick_inner: 'Thick + inner line', dashed: 'Dashed', dotted: 'Dotted', dashdot: 'Dash-dot', longdash: 'Long dash', dashdotdot: 'Dash-dot-dot', corner_tab: 'Corner tab' };
+  const ORD = { reading: { label: 'Reading order', color: '#1d4ed8', cls: 'reading' }, focus: { label: 'Focus order', color: '#b42318', cls: 'focus' } };
+  let cur = D.pages[0] ? { kind: 'page', id: D.pages[0].id } : D.components[0] ? { kind: 'comp', id: D.components[0].id } : null;
+  let navTab = cur ? cur.kind : 'page', vmode = 'ann', active = null; // active: index of the annotation whose details are open
+  let zoom = null; // null = Fit; otherwise screen px per image px
+  const ZOOMS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2, 3, 4, 6, 8];
+  const clampZ = z => Math.max(ZOOMS[0], Math.min(ZOOMS[ZOOMS.length - 1], z));
+  const hidden = new Set();      // annotation types switched off
+  const hiddenComps = new Set(); // components switched off on the screenshot (by component id)
+
+  /* header */
+  $('#title').textContent = D.meta.title;
+  $('#meta').textContent = [D.meta.customer && 'Prepared for ' + D.meta.customer, D.meta.by && 'by ' + D.meta.by, D.meta.date].filter(Boolean).join(' · ');
+  if (D.logo) $('#logo').src = D.logo;
+  const setTopH = () => document.documentElement.style.setProperty('--topH', $('.top').offsetHeight + 'px');
+  setTopH();
+
+  /* top tabs: Summary | Annotation details */
+  function setTop(t, focus) {
+    [['sum', '#tSum', '#pSum'], ['det', '#tDet', '#pDet']].forEach(([k, tab, panel]) => {
+      $(tab).setAttribute('aria-selected', k === t); $(tab).tabIndex = k === t ? 0 : -1; $(panel).hidden = k !== t;
+    });
+    if (focus) $(t === 'sum' ? '#tSum' : '#tDet').focus();
+    if (t === 'det') render();
+  }
+  $('#tSum').onclick = () => setTop('sum');
+  $('#tDet').onclick = () => setTop('det');
+  $('.rtabs').addEventListener('keydown', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setTop($('#tSum').getAttribute('aria-selected') === 'true' ? 'det' : 'sum', true); } });
+
+  /* summary */
+  $('#sumText').innerHTML = (D.meta.summary || '').split(/\n\s*\n/).filter(s => s.trim()).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  const all = D.pages.concat(D.components).flatMap(d => d.areas);
+  $('#tiles').innerHTML = [[D.pages.length, 'Screens'], [D.components.length, 'Shared components'], [all.length, 'Annotations']]
+    .map(([n, l]) => `<div class="tile"><b>${n}</b><span>${l}</span></div>`).join('');
+  const counts = D.types.map(t => ({ t, n: all.filter(a => tys(a).includes(t.id)).length })).filter(x => x.n).sort((a, b) => b.n - a.n);
+  // one row per annotation type used, most-used first
+  // one line per annotation type used (swatch, name, count), most-used first
+  $('#bars').innerHTML = counts.map(({ t, n }) => `<li class="card"><b>${n}</b><span class="cl"><i class="sw" style="--c:${t.color}" aria-hidden="true"></i>${esc(t.label)}</span></li>`).join('') || '<li class="hint">No annotations yet.</li>';
+  // screens and components in separate tables; a name opens it in Annotation details
+  $('#pageRows').innerHTML = D.pages.map(p => `<li class="card"><button class="link" data-open="page" data-id="${p.id}">${esc(p.name)}</button><span class="cl">${pl(p.areas.length, 'annotation')}</span></li>`).join('')
+    || '<li class="hint">No screens.</li>';
+  $('#compRows').innerHTML = D.components.map(c => {
+    const used = D.pages.filter(p => p.instances.some(i => i.componentId === c.id)).length;
+    return `<li class="card"><button class="link" data-open="comp" data-id="${c.id}"><span aria-hidden="true">◆ </span>${esc(c.name)}</button><span class="cl">${pl(c.areas.length, 'annotation')} · on ${pl(used, 'screen')}</span></li>`;
+  }).join('') || '<li class="hint">No shared components.</li>';
+  document.querySelectorAll('#pageRows [data-open], #compRows [data-open]').forEach(b => b.onclick = () => open(b.dataset.open, b.dataset.id, true));
+
+  // Trail of where you came from, so Back returns there: 'summary' or a { kind, id } screen/component.
+  let trail = [];
+  function open(kind, id, fromSummary) {
+    if (fromSummary) trail = ['summary'];
+    else if (cur && !(cur.kind === kind && cur.id === id)) trail.push(cur);
+    go({ kind, id });
+  }
+  function go(to) { cur = to; navTab = to.kind; active = null; zoom = null; setTop('det'); $('.stage').scrollTop = 0; }
+  function back() {
+    const prev = trail.pop();
+    if (prev === 'summary' || !prev) { trail = []; setTop('sum', true); return; }
+    go(prev);
+    ($('#backBtn').hidden ? $('#tDet') : $('#backBtn')).focus(); // keep keyboard focus on something useful
+  }
+  $('#backBtn').onclick = back;
+
+  /* left: Screens | Components, then what's on this screen */
+  function nav() {
+    // the left panel is about the selected screen (or component); other screens are opened from the Summary table
+    const d = docOf(cur), os = $('#onScreen');
+    if (!d) { os.innerHTML = ''; return; }
+    // Annotations: one row per type on this screen/component, with its count; the checkbox shows / hides that type
+    const types = D.types.map(t => ({ t, n: d.areas.filter(a => tys(a).includes(t.id)).length })).filter(x => x.n);
+    const annSection = `<h4>Annotations <span class="count">${d.areas.length}</span></h4>` + (types.length
+      ? `<ul class="tlist"><li class="all"><label><input type="checkbox" id="tAll"><span class="tl">Select all</span></label></li>${types.map(({ t, n }) => `<li><label><input type="checkbox" data-t="${t.id}" ${hidden.has(t.id) ? '' : 'checked'}><i class="sw" style="--c:${t.color}" aria-hidden="true"></i><span class="tl">${esc(t.label)}</span><span class="count">${n}</span></label></li>`).join('')}</ul>`
+        + (vmode === 'ann' ? '' : '<p class="hint">Showing and hiding types applies to the Annotations view.</p>')
+      : '<p class="hint">No annotations.</p>');
+    if (cur.kind === 'page') {
+      const cs = d.instances.map(i => comp(i.componentId)).filter(Boolean);
+      // Components: same pattern as Annotations — Select all, then a checkbox per component with its annotation count
+      os.innerHTML = annSection + `<h4>Components on this screen <span class="count">${cs.length}</span></h4>`
+        + (cs.length ? `<ul class="tlist"><li class="all"><label><input type="checkbox" id="cAll"><span class="tl">Select all</span></label></li>${cs.map(c => `<li><label><input type="checkbox" data-c="${c.id}" ${hiddenComps.has(c.id) ? '' : 'checked'}><span class="dia" aria-hidden="true">◆</span><span class="tl">${esc(c.name)}</span><span class="count" title="${pl(c.areas.length, 'annotation')}">${c.areas.length}</span></label></li>`).join('')}</ul>`
+          + (vmode === 'ann' ? '' : '<p class="hint">Showing and hiding components applies to the Annotations view.</p>')
+          : '<p class="hint">No shared components.</p>');
+      os.querySelectorAll('[data-c]').forEach(cb => cb.onchange = () => { cb.checked ? hiddenComps.delete(cb.dataset.c) : hiddenComps.add(cb.dataset.c); render(); os.querySelector(`[data-c="${cb.dataset.c}"]`)?.focus(); });
+      const cAll = os.querySelector('#cAll');
+      if (cAll) {
+        const shown = cs.filter(c => !hiddenComps.has(c.id)).length;
+        cAll.checked = shown === cs.length; cAll.indeterminate = shown > 0 && shown < cs.length;
+        cAll.onchange = () => { cs.forEach(c => cAll.checked ? hiddenComps.delete(c.id) : hiddenComps.add(c.id)); render(); $('#cAll')?.focus(); };
+      }
+    } else {
+      const used = D.pages.filter(p => p.instances.some(i => i.componentId === d.id));
+      os.innerHTML = annSection + `<h4>Used on these screens <span class="count">${used.length}</span></h4>`
+        + (used.length ? `<ul>${used.map(p => `<li><button data-page="${p.id}">${esc(p.name)}</button></li>`).join('')}</ul>` : '<p class="hint">Not on any screen.</p>');
+    }
+    os.querySelectorAll('[data-t]').forEach(cb => cb.onchange = () => { cb.checked ? hidden.delete(cb.dataset.t) : hidden.add(cb.dataset.t); render(); os.querySelector(`[data-t="${cb.dataset.t}"]`)?.focus(); });
+    // Select all: ticked when every type on this screen is shown, partly ticked when only some are
+    const all = os.querySelector('#tAll');
+    if (all) {
+      const shown = types.filter(({ t }) => !hidden.has(t.id)).length;
+      all.checked = shown === types.length; all.indeterminate = shown > 0 && shown < types.length;
+      all.onchange = () => { types.forEach(({ t }) => all.checked ? hidden.delete(t.id) : hidden.add(t.id)); render(); $('#tAll')?.focus(); };
+    }
+    os.querySelectorAll('[data-comp]').forEach(b => b.onclick = () => open('comp', b.dataset.comp));
+    os.querySelectorAll('[data-page]').forEach(b => b.onclick = () => open('page', b.dataset.page));
+  }
+
+  document.querySelectorAll('.mtabs button').forEach(b => b.onclick = () => { vmode = b.dataset.m; active = null; render(); });
+
+  /* centre */
+  function render() {
+    nav();
+    const d = docOf(cur); if (!d) return;
+    const isComp = cur.kind === 'comp';
+    const name = t => t === 'summary' ? 'summary' : (docOf(t) ? (t.kind === 'comp' ? '◆ ' : '') + docOf(t).name : '');
+    const prev = trail[trail.length - 1];
+    $('#backBtn').hidden = !prev;
+    if (prev) { $('#backBtn').textContent = '← Back to ' + name(prev); $('#backBtn').setAttribute('aria-label', 'Back to ' + name(prev).replace('◆ ', '')); }
+    // breadcrumb: the screens/components you came through, then this one
+    const crumbs = trail.filter(t => t !== 'summary').map(t => `<span class="crumb">${esc(name(t))}</span><span class="sep" aria-hidden="true">›</span>`).join('');
+    $('#vTitle').innerHTML = crumbs + (isComp ? '<span class="dia" aria-hidden="true">◆</span> ' : '') + esc(d.name);
+    document.querySelectorAll('.mtabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === vmode));
+    renderAside(d); // first: opening the details panel narrows the screenshot, so position marks after it
+    const img = $('#shotImg');
+    if (img.getAttribute('src') !== d.img) { img.onload = () => layoutShot(d); img.src = d.img; img.alt = 'Screenshot of ' + d.name; }
+    else layoutShot(d);
+  }
+
+  /* zoom & pan, like the editor's canvas (labels stay the same size on screen at any zoom) */
+  const fitZoom = d => { const st = $('#stage'); return Math.min(1, Math.max(ZOOMS[0], (st.clientWidth - 48) / d.w)); };
+  function layoutShot(d) {
+    const z = zoom == null ? fitZoom(d) : zoom;
+    $('#shotImg').style.width = Math.round(d.w * z) + 'px';
+    $('#zPct').textContent = Math.round(z * 100) + '%';
+    $('#zFit').setAttribute('aria-pressed', zoom == null);
+    drawMarks(d);
+  }
+  // zoom to z keeping the image point under `anchor` (client coords; default: centre of the view) in place
+  function zoomTo(z, anchor) {
+    const d = docOf(cur), st = $('#stage'), img = $('#shotImg'); if (!d) return;
+    const sr = st.getBoundingClientRect();
+    anchor = anchor || { clientX: sr.left + st.clientWidth / 2, clientY: sr.top + st.clientHeight / 2 };
+    const r0 = img.getBoundingClientRect(), ix = (anchor.clientX - r0.left) / r0.width, iy = (anchor.clientY - r0.top) / r0.height;
+    zoom = z == null ? null : clampZ(z);
+    layoutShot(d);
+    const r1 = img.getBoundingClientRect();
+    st.scrollLeft += r1.left + ix * r1.width - anchor.clientX;
+    st.scrollTop += r1.top + iy * r1.height - anchor.clientY;
+  }
+  // the zoom actually shown (Fit resolves to a number)
+  const curZoom = () => { const d = docOf(cur); return d ? $('#shotImg').clientWidth / d.w : 1; };
+  const step = dir => { const z = curZoom(); return dir > 0 ? (ZOOMS.find(v => v > z + 1e-3) || z) : ([...ZOOMS].reverse().find(v => v < z - 1e-3) || z); };
+  $('#zIn').onclick = () => zoomTo(step(1));
+  $('#zOut').onclick = () => zoomTo(step(-1));
+  $('#zPct').onclick = () => zoomTo(1);
+  $('#zFit').onclick = () => zoomTo(null);
+  $('#stage').addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); zoomTo(curZoom() * Math.exp(-Math.max(-50, Math.min(50, e.deltaY)) * 0.004), e); }, { passive: false });
+  document.addEventListener('keydown', e => {
+    if ($('#pDet').hidden || !(e.ctrlKey || e.metaKey)) return;
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomTo(step(1)); }
+    else if (e.key === '-') { e.preventDefault(); zoomTo(step(-1)); }
+    else if (e.key === '0') { e.preventDefault(); zoomTo(null); }
+  });
+  // drag the screenshot (anywhere but a label) to pan
+  let pan = null;
+  $('#stage').addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    const st = $('#stage'); pan = { x: e.clientX, y: e.clientY, l: st.scrollLeft, t: st.scrollTop };
+    st.setPointerCapture(e.pointerId); st.classList.add('panning');
+  });
+  $('#stage').addEventListener('pointermove', e => { if (!pan) return; const st = $('#stage'); st.scrollLeft = pan.l - (e.clientX - pan.x); st.scrollTop = pan.t - (e.clientY - pan.y); });
+  const endPan = () => { pan = null; $('#stage').classList.remove('panning'); };
+  $('#stage').addEventListener('pointerup', endPan); $('#stage').addEventListener('pointercancel', endPan);
+
+  // Place each label at the first spot (above, below, beside, inside) that doesn't overlap another label —
+  // the same rule the editor uses, worked out in screen pixels for the size the screenshot is shown at.
+  const measure = document.createElement('canvas').getContext('2d');
+  function placeLabels(items, W, H) {
+    measure.font = '600 14px system-ui, -apple-system, sans-serif';
+    return planLabels(items.map(l => ({ box: l.box, segs: l.segs || [{ text: l.text, color: l.color }], expand: l.n !== undefined && l.n === active })), {
+      measure: t => Math.ceil(measure.measureText(t).width), pad: 14, rowH: 22, gap: 2, minW: 180, bounds: { x0: 0, y0: 0, x1: W, y1: H },
+    });
+  }
+
+  function drawMarks(d) {
+    const img = $('#shotImg'), W = img.clientWidth, H = img.clientHeight, k = W / d.w, marks = $('#marks');
+    if (!W) return;
+    const px = r => ({ x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k });
+    const css = r => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
+    let html = '';
+    if (vmode !== 'ann') {
+      const st = (d.orders && d.orders[vmode]) || [], col = ORD[vmode].color, pts = st.map(o => (o.x * k) + ',' + (o.y * k)).join(' ');
+      html += (d.instances || []).map(i => `<div class="inst" style="${css(px(i))};opacity:.5"></div>`).join('');
+      html += `<svg class="opath" width="${W}" height="${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" ${vmode === 'focus' ? 'stroke-dasharray="7 5"' : ''} stroke-linejoin="round"/></svg>`;
+      st.forEach(o => { html += `<span class="ob ${vmode}${o.component ? ' fromc' : ''}" style="left:${o.x * k}px;top:${o.y * k}px;--c:${col}" title="${o.number}. ${esc(o.label)}">${o.number}</span>`; });
+      marks.innerHTML = html;
+      return;
+    }
+    const labels = [];
+    (d.instances || []).forEach(i => {
+      const c = comp(i.componentId); if (!c || hiddenComps.has(c.id)) return;
+      const b = px(i); html += `<div class="inst" style="${css(b)}"></div>`;
+      labels.push({ box: b, text: `◆ ${c.name} (${c.areas.length}) ↗`, color: '#7b3fe4', comp: c });
+    });
+    d.areas.forEach((a, n) => {
+      if (tys(a).every(id => hidden.has(id))) return; // hidden only when all of its types are switched off
+      const t = typeOf(a.type), b = px(a);
+      html += `<div class="box${active === n ? ' on' : ''}${t.border === 'corner_tab' ? ' tab' : ''}" data-box="${n}" style="${css(b)};--c:${t.color};border:${CSS_BORDER[t.border] || '2px solid'} ${t.color}"></div>`;
+      const segs = tys(a).map((id, k) => ({ text: k ? badge(a, id) : `${n + 1}. ${badge(a, id)}`, color: typeOf(id).color }));
+      labels.push({ box: b, text: segs.map(g => g.text).join(' '), segs, color: t.color, n, aria: `${n + 1}. ${tLabel(a)}` });
+    });
+    const plan = placeLabels(labels, W, H);
+    const leaders = plan.filter(p => p.leader).map(p => `<line x1="${p.leader.x1}" y1="${p.leader.y1}" x2="${p.leader.x2}" y2="${p.leader.y2}"/>`).join('');
+    if (leaders) html += `<svg class="leaders" width="${W}" height="${H}" aria-hidden="true">${leaders}</svg>`;
+    labels.forEach((l, i) => {
+      const r = plan[i].r; l.segs = plan[i].segs;
+      html += l.comp
+        ? `<button class="lbl" style="left:${r.x}px;top:${r.y}px;--c:${l.color}" data-comp="${l.comp.id}" aria-label="Open component ${esc(l.comp.name)}">${esc(l.text)}</button>`
+        : `<button class="lbl multi" style="left:${r.x}px;top:${r.y}px;width:${r.w + 1}px" data-n="${l.n}" aria-expanded="${active === l.n}" aria-controls="det" aria-label="${esc(l.aria)}">${l.segs.map(g => `<span style="--c:${g.color}">${esc(g.text)}</span>`).join('')}</button>`;
+    });
+    marks.innerHTML = html;
+    marks.querySelectorAll('[data-n]').forEach(b => {
+      const box = marks.querySelector(`.box[data-box="${b.dataset.n}"]`);
+      b.onmouseenter = b.onfocus = () => box && box.classList.add('hl');
+      b.onmouseleave = b.onblur = () => box && box.classList.remove('hl');
+    });
+    marks.querySelectorAll('[data-n]').forEach(b => b.onclick = () => { active = active === +b.dataset.n ? null : +b.dataset.n; render(); if (active !== null) $('#det .x')?.focus({ preventScroll: true }); });
+    marks.querySelectorAll('[data-comp]').forEach(b => b.onclick = () => open('comp', b.dataset.comp));
+  }
+
+  /* right: details of the clicked annotation, or the ordered list in reading / focus order */
+  function renderAside(d) {
+    const det = $('#det');
+    if (vmode !== 'ann') {
+      const st = (d.orders && d.orders[vmode]) || [], O = ORD[vmode];
+      det.innerHTML = `<div class="dHead"><span class="num ${O.cls}" style="background:${O.color}">${st.length}</span><div><h2 id="detH">${O.label}</h2><span class="hint">${esc(d.name)}</span></div></div>`
+        + (st.length ? `<ol class="olist">${st.map(o => `<li><span class="num ${O.cls}" style="background:${O.color}">${o.number}</span><span>${esc(o.label)}</span></li>`).join('')}</ol>` : `<p class="hint">No ${O.label.toLowerCase()} for this ${cur.kind === 'comp' ? 'component' : 'screen'}.</p>`);
+      det.hidden = false; return;
+    }
+    const a = active !== null && d.areas[active];
+    if (!a) { det.hidden = true; return; }
+    const t = typeOf(a.type), ids = tys(a), multi = ids.length > 1;
+    const meta = x => `${esc(x.groupName || '')}${x.groupName ? ' · ' : ''}Border: ${esc(BORDER_NAME[x.border] || 'Solid')}`;
+    det.innerHTML = `<div class="dHead">
+        <span class="num" style="background:${t.color}">${active + 1}</span>
+        <div><h2 id="detH">${multi ? `<span class="sr">${esc(tLabel(a))}</span><span class="tBadges" aria-hidden="true">${ids.map(id => `<span class="tBadge" style="--c:${typeOf(id).color}">${esc(typeOf(id).label)}</span>`).join('')}</span>` : `${esc(t.label)} <i class="sw" style="--c:${t.color}" aria-hidden="true"></i>`}</h2><span class="hint">${multi ? ids.length + ' annotations on this element' : meta(t)}</span></div>
+        <button class="x" aria-label="Close details">✕</button>
+      </div>
+      ${ids.map((id, i) => { const x = typeOf(id); return `<section class="dType">
+        ${multi ? `<h3 class="dtH"><i class="sw" style="--c:${x.color}" aria-hidden="true"></i>${esc(x.label)}</h3><span class="hint">${meta(x)}</span>` : ''}
+        ${x.description ? `<p style="margin:4px 0 0">${esc(x.description)}</p>` : ''}
+        ${x.wcag ? `<div style="margin-top:8px"><span class="hint">WCAG 2.2</span><div class="chips">${x.wcag.split(/[;,]\s*/).filter(Boolean).map(c => `<span class="sc">${esc(c)}</span>`).join('')}</div></div>` : ''}
+        ${(x.props || []).length ? `<dl class="pList">${x.props.map(p => { const v = pv(a, id, p.id), o = p.kind === 'choice' && (p.options || []).find(q => q.value === v);
+          return `<dt>${esc(p.name)}</dt><dd>${v ? esc(p.kind === 'choice' ? optL(p, v) : v) : '<span class="hint">Not set</span>'}${o && o.description ? `<span class="hint" style="display:block">${esc(o.description)}</span>` : ''}</dd>`; }).join('')}</dl>` : ''}
+      </section>`; }).join('')}
+      ${a.note ? `<div><span class="hint">Note</span><p class="note" style="margin:4px 0 0">${esc(a.note)}</p></div>` : ''}`;
+    det.querySelector('.x').onclick = () => { const n = active; active = null; render(); $(`#marks [data-n="${n}"]`)?.focus(); };
+    det.hidden = false;
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && active !== null) { const n = active; active = null; render(); $(`#marks [data-n="${n}"]`)?.focus(); } });
+  window.addEventListener('resize', () => { setTopH(); if (!$('#pDet').hidden) { const d = docOf(cur); if (d) layoutShot(d); } });
+}
+
+/* ---------- dialog ---------- */
+function askDialog({ title, msg = '', value = '', input = true, ok = 'OK' }) {
+  const dlg = $('dlg'), field = $('dlgInput');
+  $('dlgTitle').textContent = title; $('dlgMsg').textContent = msg; $('dlgMsg').hidden = !msg;
+  $('dlgOk').textContent = ok; field.hidden = !input; field.value = value; field.required = input;
+  dlg.returnValue = '';
+  dlg.showModal(); if (input) field.select();
+  return new Promise(res => dlg.addEventListener('close', () => {
+    res(dlg.returnValue === 'ok' ? (input ? field.value.trim() || null : true) : null);
+  }, { once: true }));
+}
+
+/* ---------- reading order & focus order ----------
+   Each screen and component has its own sequences: d.orders = { reading: [step], focus: [step] }.
+   step: { id, x, y }                        a free badge (image coords)
+         { id, x, y, areaId, u, v }          attached to an annotation (u, v = position inside it, 0–1), moves with it
+         { id, x, y, instId }                on a screen only: a component's own order, inserted as one block
+   One mode is shown at a time: 'ann' (annotations), 'reading' or 'focus'. */
+const ORDER = {
+  reading: { label: 'Reading order', color: '#1d4ed8', shape: 'circle', dash: [] },
+  focus:   { label: 'Focus order',   color: '#b42318', shape: 'square', dash: [7, 5] },
+};
+let mode = 'ann', selStep = null, odrag = null; // current view, selected step, badge drag in progress
+const orderOf = (d, m) => d?.orders?.[m] || [];
+const ensureOrder = (d, m) => { d.orders ||= {}; return (d.orders[m] ||= []); };
+const isInteractive = id => { const t = typeById(id); return t.group === 'controls' || t.id === 'img-active'; };
+
+function stepPos(d, st) {
+  const a = st.areaId && d.areas.find(x => x.id === st.areaId);
+  return a ? { x: a.x + st.u * a.w, y: a.y + st.v * a.h } : { x: st.x, y: st.y };
+}
+// The sequence as drawn: component blocks expand into the component's own steps, numbering continues.
+function flatOrder(d, m) {
+  const out = [];
+  orderOf(d, m).forEach(st => {
+    if (st.instId) {
+      const inst = d.instances?.find(i => i.id === st.instId), c = inst && comp(inst.componentId);
+      if (!c) return;
+      const sx = inst.w / c.w, sy = inst.h / c.h, inner = flatOrder(c, m);
+      if (!inner.length) out.push({ x: inst.x + inst.w / 2, y: inst.y + inst.h / 2, step: st, block: c, empty: true, label: `◆ ${c.name}` });
+      inner.forEach(f => out.push({ x: inst.x + f.x * sx, y: inst.y + f.y * sy, step: st, block: c, label: `◆ ${c.name} › ${f.label}` }));
+    } else {
+      const a = st.areaId && d.areas.find(x => x.id === st.areaId);
+      out.push({ ...stepPos(d, st), step: st, label: a ? `${d.areas.indexOf(a) + 1}. ${typeLabel(a)}` : 'Point' });
+    }
+  });
+  let n = 0;
+  out.forEach(f => { if (!f.empty) f.n = ++n; });
+  return out;
+}
+
+/* mode switch (above the canvas) */
+function setMode(m) {
+  mode = m; selStep = null; odrag = null;
+  hidePicker(); setCapture(false); sel = noSel(); detail = null;
+  document.querySelectorAll('#modeBar button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+  refresh();
+}
+document.querySelectorAll('#modeBar button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+
+/* drawing */
+function renderOrderMode(d) {
+  const s = scale(), lw = 2 * s, O = ORDER[mode];
+  // context, faded: components (striped) and annotation outlines
+  (d.instances || []).forEach(inst => {
+    ctx.fillStyle = stripes(); ctx.fillRect(inst.x, inst.y, inst.w, inst.h);
+    ctx.setLineDash([8 * s, 5 * s]); ctx.strokeStyle = COMP_COLOR + '88'; ctx.lineWidth = lw * .75;
+    ctx.strokeRect(inst.x, inst.y, inst.w, inst.h); ctx.setLineDash([]);
+  });
+  d.areas.forEach(a => { ctx.strokeStyle = typeById(a.type).color + '55'; ctx.lineWidth = lw * .6; ctx.strokeRect(a.x, a.y, a.w, a.h); });
+  const flat = flatOrder(d, mode), pts = flat.filter(f => !f.empty);
+  // connecting path (white halo underneath so it shows on dark areas)
+  const path = () => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); };
+  ctx.lineJoin = 'round';
+  ctx.setLineDash(O.dash.map(v => v * s));
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = lw * 2.4; path();
+  ctx.strokeStyle = O.color; ctx.lineWidth = lw; path();
+  ctx.setLineDash([]);
+  // focus order: arrowheads on each segment show direction
+  if (mode === 'focus') for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], ang = Math.atan2(b.y - a.y, b.x - a.x), len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 40 * s) continue;
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, h = 7 * s;
+    ctx.fillStyle = O.color; ctx.beginPath();
+    ctx.moveTo(mx + Math.cos(ang) * h, my + Math.sin(ang) * h);
+    ctx.lineTo(mx + Math.cos(ang + 2.5) * h, my + Math.sin(ang + 2.5) * h);
+    ctx.lineTo(mx + Math.cos(ang - 2.5) * h, my + Math.sin(ang - 2.5) * h);
+    ctx.closePath(); ctx.fill();
+  }
+  // badges: reading = circles, focus = squares; steps from a component get a purple ring
+  const r = 13 * s;
+  ctx.font = `700 ${13 * s}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  flat.forEach(f => {
+    const on = selStep && f.step.id === selStep, shape = (rr) => {
+      ctx.beginPath();
+      if (O.shape === 'circle') ctx.arc(f.x, f.y, rr, 0, Math.PI * 2);
+      else ctx.roundRect(f.x - rr, f.y - rr, rr * 2, rr * 2, 3 * s);
+    };
+    if (on) { shape(r + 5 * s); ctx.fillStyle = O.color + '44'; ctx.fill(); }
+    shape(r + 2 * s); ctx.fillStyle = f.block ? COMP_COLOR : '#fff'; ctx.fill();
+    shape(r); ctx.fillStyle = f.empty ? '#fff' : O.color; ctx.fill();
+    if (f.empty) { ctx.setLineDash([3 * s, 2 * s]); ctx.strokeStyle = COMP_COLOR; ctx.lineWidth = lw * .75; shape(r); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.fillStyle = f.empty ? COMP_COLOR : '#fff';
+    ctx.fillText(f.empty ? '◆' : String(f.n), f.x, f.y + .5 * s);
+  });
+  ctx.textAlign = 'start';
+  renderOverlay([]);
+}
+
+/* pointer: click adds the next badge; drag a badge to move it */
+function orderHit(p) {
+  const flat = flatOrder(doc(), mode), rr = 15 * scale();
+  for (let i = flat.length - 1; i >= 0; i--) if (Math.hypot(p.x - flat[i].x, p.y - flat[i].y) <= rr) return flat[i];
+  return null;
+}
+function orderDown(e) {
+  const p = toImg(e), f = orderHit(p), before = serialize();
+  canvas.setPointerCapture(e.pointerId);
+  hidePicker();
+  if (f) { selStep = f.step.id; odrag = f.block ? { mode: 'click' } : { mode: 'move', step: f.step, start: p, before }; return refresh(); }
+  odrag = { mode: 'add', start: p, before };
+}
+function orderMove(e) {
+  const d = doc(), p = toImg(e);
+  if (!odrag) { canvas.style.cursor = orderHit(p) ? 'grab' : 'copy'; return; }
+  if (odrag.mode !== 'move') return;
+  if (!odrag.moved && Math.hypot(p.x - odrag.start.x, p.y - odrag.start.y) < 3 * scale()) return;
+  odrag.moved = true; canvas.style.cursor = 'grabbing';
+  placeStep(odrag.step, { x: clamp(p.x, 0, d.w), y: clamp(p.y, 0, d.h) });
+  render();
+}
+function orderUp(e) {
+  const d = doc(), dr = odrag; odrag = null;
+  if (!dr) return;
+  if (dr.mode === 'add') {
+    const p = toImg(e);
+    if (Math.hypot(p.x - dr.start.x, p.y - dr.start.y) > 4 * scale()) return; // a drag isn't a click
+    addStep({ x: clamp(p.x, 0, d.w), y: clamp(p.y, 0, d.h) }, dr.before);
+  } else if (dr.mode === 'move' && dr.moved) commit(dr.before);
+}
+// Attach a badge to the innermost annotation under it (so it moves with it), or leave it free.
+function placeStep(st, p) {
+  const a = doc().areas.filter(x => inside(p, x)).sort((x, y) => x.w * x.h - y.w * y.h)[0];
+  st.x = p.x; st.y = p.y;
+  if (a) { st.areaId = a.id; st.u = (p.x - a.x) / a.w; st.v = (p.y - a.y) / a.h; }
+  else { delete st.areaId; delete st.u; delete st.v; }
+}
+function addStep(p, before) {
+  const d = doc(), list = ensureOrder(d, mode), hit = innermostAt(p);
+  if (hit?.kind === 'inst') { // a component: insert its own order as one block (once per screen)
+    const existing = list.find(st => st.instId === hit.r.id);
+    if (existing) { selStep = existing.id; return refresh(); }
+    const st = { id: uid('o'), x: p.x, y: p.y, instId: hit.r.id };
+    list.push(st); selStep = st.id;
+  } else {
+    const st = { id: uid('o') }; placeStep(st, p);
+    list.push(st); selStep = st.id;
+  }
+  commit(before);
+}
+
+/* auto-fill: reading = every annotation top-to-bottom, left-to-right (skipping containers that hold other
+   annotations); focus = interactive annotations only. Components on a screen become blocks. */
+async function autoFillOrder() {
+  const d = doc(), list = orderOf(d, mode);
+  if (list.length && !await askDialog({ title: `Replace the ${ORDER[mode].label.toLowerCase()}?`, msg: `The current ${plural(list.length, 'step')} will be replaced.`, input: false, ok: 'Replace' })) return;
+  const contains = (o, a) => o !== a && a.x >= o.x && a.y >= o.y && a.x + a.w <= o.x + o.w && a.y + a.h <= o.y + o.h;
+  const items = [];
+  d.areas.forEach(a => {
+    if (mode === 'focus' ? !typesOf(a).some(isInteractive) : d.areas.some(b => contains(a, b))) return;
+    items.push({ x: a.x, y: a.y, step: { id: uid('o'), x: a.x + a.w / 2, y: a.y + a.h / 2, areaId: a.id, u: .5, v: .5 } });
+  });
+  (isPage() ? d.instances : []).forEach(i => items.push({ x: i.x, y: i.y, step: { id: uid('o'), x: i.x, y: i.y, instId: i.id } }));
+  const ROW = 16; // items whose tops are this close count as one row, read left to right
+  items.sort((a, b) => Math.abs(a.y - b.y) < ROW ? a.x - b.x : a.y - b.y);
+  const before = serialize();
+  ensureOrder(d, mode).splice(0, Infinity, ...items.map(i => i.step));
+  selStep = null; commit(before);
+}
+
+/* right panel: the ordered list */
+function renderOrderPanel() {
+  const panel = $('details'), d = doc(), O = ORDER[mode], list = orderOf(d, mode), flat = flatOrder(d, mode);
+  const range = st => { const ns = flat.filter(f => f.step === st && !f.empty).map(f => f.n); return ns.length ? (ns.length > 1 ? `${ns[0]}–${ns[ns.length - 1]}` : `${ns[0]}`) : '◆'; };
+  const total = flat.filter(f => !f.empty).length;
+  panel.innerHTML = `<div class="dpHead">
+      <span class="num ord ${O.shape}" style="background:${O.color}" aria-hidden="true">${total}</span>
+      <div class="dpTitle"><h2 id="dpTitle">${O.label}</h2><span class="hint">${esc(d.name)} · ${plural(total, 'step')}</span></div>
+    </div>
+    <p class="hint">Click the screen where each element is, in order. Each click adds the next number and joins it to the last. Click inside an annotation to attach the badge to it${isPage() ? '; click a component to add its own order as one block' : ''}. Drag a badge to move it.</p>
+    <div class="dpActions">
+      <button type="button" class="small" data-act="auto">Auto-fill</button>
+      <button type="button" class="small del" data-act="clear" ${list.length ? '' : 'disabled'}>Clear</button>
+    </div>
+    ${list.length ? `<ol class="ordList" aria-label="${O.label} steps">${list.map((st, i) => {
+      const inst = st.instId && d.instances?.find(x => x.id === st.instId), c = inst && comp(inst.componentId);
+      const a = st.areaId && d.areas.find(x => x.id === st.areaId);
+      const label = c ? `<span class="diamond">◆</span> ${esc(c.name)} <span class="hint">· ${orderOf(c, mode).length ? plural(flat.filter(f => f.step === st && !f.empty).length, 'step') : 'no order yet'}</span>`
+        : a ? `${esc(typeLabel(a))} <span class="hint">· annotation ${d.areas.indexOf(a) + 1}</span>` : 'Point';
+      return `<li class="${selStep === st.id ? 'on' : ''}">
+          <button type="button" class="ordSel" data-i="${i}"><span class="num ord ${O.shape}" style="background:${c ? COMP_COLOR : O.color}">${range(st)}</span><span>${label}</span></button>
+          ${c ? `<button type="button" class="icon" data-open="${c.id}" aria-label="Open ${esc(c.name)} to edit its order" title="Edit its order">↗</button>` : ''}
+          <button type="button" class="icon" data-up="${i}" aria-label="Move step up" ${i ? '' : 'disabled'}>↑</button>
+          <button type="button" class="icon" data-down="${i}" aria-label="Move step down" ${i < list.length - 1 ? '' : 'disabled'}>↓</button>
+          <button type="button" class="icon del" data-del="${i}" aria-label="Remove step">✕</button>
+        </li>`;
+    }).join('')}</ol>` : '<p class="empty">No steps yet.</p>'}`;
+  const move = (i, j) => { const b = serialize(), L = ensureOrder(d, mode); [L[i], L[j]] = [L[j], L[i]]; commit(b); };
+  panel.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { selStep = list[+b.dataset.i].id; refresh(); });
+  panel.querySelectorAll('[data-up]').forEach(b => b.onclick = () => move(+b.dataset.up, +b.dataset.up - 1));
+  panel.querySelectorAll('[data-down]').forEach(b => b.onclick = () => move(+b.dataset.down, +b.dataset.down + 1));
+  panel.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removeStep(list[+b.dataset.del].id));
+  panel.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openDoc('comp', b.dataset.open));
+  panel.querySelector('[data-act=auto]').onclick = autoFillOrder;
+  panel.querySelector('[data-act=clear]').onclick = async () => {
+    if (!await askDialog({ title: `Clear the ${O.label.toLowerCase()}?`, msg: `${plural(list.length, 'step')} will be removed from ${d.name}.`, input: false, ok: 'Clear' })) return;
+    const b = serialize(); ensureOrder(d, mode).length = 0; selStep = null; commit(b);
+  };
+  panel.classList.remove('slide');
+  if (panel.hidden) { panel.hidden = false; relayout(); }
+}
+function removeStep(id) {
+  const d = doc(), b = serialize();
+  d.orders[mode] = orderOf(d, mode).filter(st => st.id !== id);
+  if (selStep === id) selStep = null;
+  commit(b);
+}
+// Exports: the sequence with positions and what each step points to.
+const orderJson = (d, m) => flatOrder(d, m).filter(f => !f.empty).map(f => ({ number: f.n, label: f.label, x: Math.round(f.x), y: Math.round(f.y), ...(f.block ? { component: f.block.name } : {}) }));
+
+/* ---------- keyboard ---------- */
+window.addEventListener('keydown', e => {
+  if ($('dlg').open || $('settings').open || $('reportDlg').open || $('placeDlg').open) return;
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if ((e.metaKey || e.ctrlKey) && e.key === '\\' && !typing) { e.preventDefault(); return $('navToggle').click(); }
+  if (mode !== 'ann' && selStep && !typing) {
+    if (e.key === 'Escape') { selStep = null; return refresh(); }
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); return removeStep(selStep); }
+  }
+  if (e.key === 'Escape') { if (detail) return closeDetail(); hidePicker(); setCapture(false); sel = noSel(); refresh(); }
+  if ((e.metaKey || e.ctrlKey) && doc() && !typing) {
+    if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomTo(zoomStep(1)); }
+    else if (e.key === '-') { e.preventDefault(); zoomTo(zoomStep(-1)); }
+    else if (e.key === '0') { e.preventDefault(); zoomTo(null); }
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !typing) { e.preventDefault(); undo(); }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !typing && doc()) {
+    if (sel.area) { e.preventDefault(); const before = serialize(); doc().areas = doc().areas.filter(a => a.id !== sel.area); sel.area = null; commit(before); }
+    else if (sel.inst) { e.preventDefault(); removeInstance(sel.inst); }
+  }
+});
+window.addEventListener('resize', () => { if (doc()) { layoutCanvas(); render(); } });
+
+refresh();
+loadSaved().then(b => { if (b?.project?.pages?.length) loadBundle(b); });
+</script>
+</body>
+</html>

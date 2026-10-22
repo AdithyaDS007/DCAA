@@ -1,0 +1,46 @@
+/* Inline with the application stylesheet. Deque brand colors; root owns the overall shell. */
+.dcaa-library-filters,.dcaa-rule-directory-filters{display:flex;flex-wrap:wrap;align-items:end;gap:12px}
+.dcaa-library-filters>label,.dcaa-rule-directory-filters>label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:500;flex:1;min-width:140px}
+.dcaa-library-filters input[type=search],.dcaa-rule-directory-filters input[type=search]{font:inherit;min-height:40px;padding:8px 12px;border:1px solid #2e5f7a;border-radius:4px;background:#fff;color:#2a2826;width:100%}
+.dcaa-library-filters select,.dcaa-rule-directory-filters select{border-color:#2e5f7a}
+#dcaa-library-tools{display:flex;flex-direction:column;gap:12px}
+.dcaa-library-actions{display:flex;flex-wrap:wrap;gap:8px}
+.dcaa-library-actions button{border-color:#2e5f7a;min-height:40px}
+#picker .dcaa-library-filters{gap:8px;margin-bottom:8px}
+#picker .dcaa-library-filters>label{min-width:110px;font-size:14px}
+#picker .dcaa-library-filters select{padding:4px 6px;min-height:36px;font-size:14px}
+#picker .dcaa-filter-help{padding:8px 4px;font-size:14px}
+.dcaa-filter-retained{display:block;margin-top:3px}
+.dcaa-tag-platforms{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;border:1px solid #2e5f7a;border-radius:4px;padding:8px 12px;min-width:0}
+.dcaa-tag-platforms legend{font-size:14px;font-weight:500;padding:0 4px}
+.dcaa-tag-platforms label{font-size:14px;display:inline-flex;align-items:center;gap:5px;min-height:32px}
+.dcaa-tag-platforms input{width:18px;height:18px;accent-color:#2e5f7a}
+.dcaa-tag-wcag{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.dcaa-rule-links{display:flex;flex-direction:column;align-items:flex-start;gap:6px;font-size:14px;max-width:100%;overflow-wrap:anywhere}
+.dcaa-rule-pair{display:inline-flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;border-left:3px solid #2e5f7a;padding-left:8px}
+.dcaa-rule-links a,.dcaa-rule-dialog a{color:#2e5f7a;text-decoration:underline;text-underline-offset:2px}
+.dcaa-rule-links a:hover,.dcaa-rule-dialog a:hover{color:#193443;text-decoration-thickness:2px}
+.dcaa-rule-links a:focus-visible,.dcaa-rule-dialog :is(a,button,input,select,[tabindex]):focus-visible{outline:3px solid #193443;outline-offset:3px}
+.dcaa-understanding{font-size:14px}
+.dcaa-level{font-weight:500;white-space:nowrap}
+.dcaa-rule-unavailable{background:#f6f3ed;border:1px solid #b3781c;color:#2a2826;padding:4px 8px;border-radius:4px}
+#pickerInfo{max-height:calc(100vh - 16px);overflow:auto}
+#pickerInfo .infoWcag .dcaa-rule-links{display:flex;flex-direction:column;gap:8px}
+#dcaa-wcag-directory{width:min(1100px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:24px;color:#2a2826;background:#fff;border:1px solid #193443;border-radius:6px}
+#dcaa-wcag-directory[open]{display:flex;flex-direction:column;gap:16px}
+.dcaa-rules-header{display:flex;gap:16px;justify-content:space-between;align-items:flex-start}
+.dcaa-rules-header h2{font-size:22px;font-weight:500;color:#2a2826;display:block;line-height:1.3;margin:0 0 6px}
+.dcaa-rules-header button{flex:none;border-color:#2e5f7a}
+.dcaa-rule-table-scroll{overflow:auto;min-height:0;border:1px solid #2e5f7a;border-radius:4px}
+.dcaa-rule-table-scroll:focus-visible{outline:3px solid #193443;outline-offset:2px}
+.dcaa-rule-dialog table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;text-align:left}
+.dcaa-rule-dialog caption{text-align:left;padding:12px;font-weight:500;background:#f6f3ed}
+.dcaa-rule-dialog th,.dcaa-rule-dialog td{padding:10px 12px;vertical-align:top;border-bottom:1px solid #c5dde9}
+.dcaa-rule-dialog th{font-weight:500}
+.dcaa-rule-dialog thead{background:#c5dde9;color:#193443}
+.dcaa-rule-dialog tbody tr:nth-child(even){background:#f6f3ed}
+.dcaa-rule-dialog tbody th{min-width:210px}
+.dcaa-rule-dialog td:nth-child(3){min-width:180px}
+.dcaa-rule-dialog td button{border-color:#2e5f7a}
+@media(max-width:600px){#dcaa-wcag-directory{padding:16px}.dcaa-rule-directory-filters>label{min-width:120px}.dcaa-rules-header h2{font-size:20px}.dcaa-tag-platforms{gap:6px 12px}.dcaa-library-actions button{flex:1 1 180px}}
+@media(forced-colors:active){.dcaa-rule-unavailable,.dcaa-tag-platforms,.dcaa-rule-table-scroll{border-color:CanvasText}.dcaa-rule-links a,.dcaa-rule-dialog a{color:LinkText}.dcaa-rule-pair{border-color:CanvasText}}
